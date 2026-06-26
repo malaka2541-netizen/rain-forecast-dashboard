@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: rain-forecast-dashboard
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python server.py
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: TMD_API_TOKEN
+        sync: false

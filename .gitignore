@@ -10,5 +10,6 @@ env/
 Thumbs.db
 
 *.log
+.env
 test_out.txt
 test_direct_out.txt

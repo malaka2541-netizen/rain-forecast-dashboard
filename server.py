@@ -1,134 +1,186 @@
 import http.server
-import socketserver
-import urllib.request
-import urllib.parse
 import json
+import os
+import socketserver
 import sys
+import urllib.parse
+import urllib.request
+from pathlib import Path
 
-# Reconfigure stdout to use UTF-8
-sys.stdout.reconfigure(encoding='utf-8')
+sys.stdout.reconfigure(encoding="utf-8")
 
-PORT = 8000
+DEFAULT_PORT = 8000
+ENV_PATH = Path(__file__).with_name(".env")
 
-class TmdProxyHandler(http.server.SimpleHTTPRequestHandler):
+
+def load_env_file(env_path: Path) -> None:
+    if not env_path.exists():
+        return
+
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        os.environ.setdefault(key, value)
+
+
+def build_openmeteo_url(lat: str, lon: str) -> str:
+    return (
+        "https://api.open-meteo.com/v1/forecast"
+        f"?latitude={lat}&longitude={lon}"
+        "&hourly=precipitation_probability,precipitation,weather_code,"
+        "wind_speed_10m,wind_gusts_10m,cape,dewpoint_2m,surface_pressure"
+        "&timezone=Asia%2FBangkok"
+        "&forecast_days=10"
+    )
+
+
+def build_tmd_url(lat: str, lon: str, forecast_type: str) -> str:
+    if forecast_type == "hourly":
+        return (
+            "https://data.tmd.go.th/nwpapi/v1/forecast/location/hourly/at"
+            f"?lat={lat}&lon={lon}&fields=tc,rh,rain,cond&duration=48"
+        )
+
+    return (
+        "https://data.tmd.go.th/nwpapi/v1/forecast/location/daily/at"
+        f"?lat={lat}&lon={lon}&fields=tc_max,tc_min,rain,cond&duration=10"
+    )
+
+
+class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
+    def respond_json(self, payload, status=200, extra_headers=None):
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        if extra_headers:
+            for key, value in extra_headers.items():
+                self.send_header(key, value)
+        self.end_headers()
+        self.wfile.write(json.dumps(payload).encode("utf-8"))
+
+    def fetch_json(self, url, headers=None, timeout=20):
+        request = urllib.request.Request(url)
+        request.add_header("Accept", "application/json")
+        for key, value in (headers or {}).items():
+            request.add_header(key, value)
+
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return response.read()
+
+    def parse_lat_lon(self, parsed_url):
+        query_params = urllib.parse.parse_qs(parsed_url.query)
+        lat = query_params.get("lat", [""])[0]
+        lon = query_params.get("lon", [""])[0]
+        return query_params, lat, lon
+
+    def handle_openmeteo_forecast(self, lat, lon):
+        openmeteo_url = build_openmeteo_url(lat, lon)
+        print(f"Proxying Open-Meteo request to: {openmeteo_url}")
+
+        try:
+            response_body = self.fetch_json(openmeteo_url, timeout=20)
+            self.respond_json(json.loads(response_body.decode("utf-8")))
+            print("Open-Meteo request completed successfully.")
+        except Exception as error:
+            print(f"Error during Open-Meteo proxy request: {error}")
+            self.respond_json({"error": str(error), "source": "openmeteo"}, status=500)
+
+    def handle_tmd_forecast(self, lat, lon, forecast_type, query_params):
+        token = os.getenv("TMD_API_TOKEN") or query_params.get("token", [""])[0]
+        if not token:
+            self.respond_json(
+                {
+                    "error": "TMD API token is not configured on the server.",
+                    "configured": False,
+                    "source": f"tmd-{forecast_type}",
+                },
+                status=503,
+            )
+            return
+
+        tmd_url = build_tmd_url(lat, lon, forecast_type)
+        print(f"Proxying TMD {forecast_type} request to: {tmd_url}")
+
+        try:
+            response_body = self.fetch_json(
+                tmd_url,
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=20,
+            )
+            self.respond_json(json.loads(response_body.decode("utf-8")))
+            print(f"TMD {forecast_type} request completed successfully.")
+        except urllib.error.HTTPError as error:
+            print(f"TMD {forecast_type} HTTP error: {error.code} {error.reason}")
+            try:
+                error_body = error.read().decode("utf-8")
+                payload = json.loads(error_body)
+            except Exception:
+                payload = {"error": f"TMD API returned {error.code} {error.reason}"}
+
+            payload["source"] = f"tmd-{forecast_type}"
+            self.respond_json(payload, status=error.code)
+        except Exception as error:
+            print(f"Error during TMD {forecast_type} proxy request: {error}")
+            self.respond_json({"error": str(error), "source": f"tmd-{forecast_type}"}, status=500)
+
     def do_GET(self):
         parsed_url = urllib.parse.urlparse(self.path)
-        
-        # Check if the request is for the TMD proxy API
-        is_hourly = (parsed_url.path == '/api/tmd/hourly') or (parsed_url.path == '/api/tmd')
-        is_daily = (parsed_url.path == '/api/tmd/daily')
-        is_openmeteo = (parsed_url.path == '/api/openmeteo')
+        query_params, lat, lon = self.parse_lat_lon(parsed_url)
 
-        if is_hourly or is_daily:
-            query_params = urllib.parse.parse_qs(parsed_url.query)
-            lat = query_params.get('lat', [''])[0]
-            lon = query_params.get('lon', [''])[0]
-            token = query_params.get('token', [''])[0]
-            
-            if not lat or not lon or not token:
-                self.send_response(400)
-                self.send_header('Content-Type', 'application/json')
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Missing parameters (lat, lon, token)"}).encode('utf-8'))
-                return
-                
-            if is_hourly:
-                tmd_url = f"https://data.tmd.go.th/nwpapi/v1/forecast/location/hourly/at?lat={lat}&lon={lon}&fields=tc,rh,rain,cond&duration=48"
-            else:
-                tmd_url = f"https://data.tmd.go.th/nwpapi/v1/forecast/location/daily/at?lat={lat}&lon={lon}&fields=tc_max,tc_min,rain,cond&duration=10"
-                
-            print(f"Proxying TMD API request to: {tmd_url}")
-            
-            req = urllib.request.Request(tmd_url)
-            req.add_header('Accept', 'application/json')
-            req.add_header('Authorization', f'Bearer {token}')
-            
-            try:
-                with urllib.request.urlopen(req, timeout=10) as response:
-                    res_data = response.read()
-                    self.send_response(200)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_header('Access-Control-Allow-Origin', '*')
-                    self.end_headers()
-                    self.wfile.write(res_data)
-                    print("Proxy request completed successfully!")
-            except urllib.error.HTTPError as e:
-                print(f"HTTPError from TMD API: {e.code} - {e.reason}")
-                self.send_response(e.code)
-                self.send_header('Content-Type', 'application/json')
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.end_headers()
-                try:
-                    error_body = e.read().decode('utf-8')
-                    self.wfile.write(error_body.encode('utf-8'))
-                except:
-                    self.wfile.write(json.dumps({"error": f"TMD API returned HTTP error: {e.code} {e.reason}"}).encode('utf-8'))
-            except Exception as e:
-                print(f"Error during proxy request: {str(e)}")
-                self.send_response(500)
-                self.send_header('Content-Type', 'application/json')
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+        openmeteo_paths = {"/api/openmeteo", "/api/forecast/openmeteo"}
+        tmd_hourly_paths = {"/api/tmd", "/api/tmd/hourly", "/api/forecast/tmd/hourly"}
+        tmd_daily_paths = {"/api/tmd/daily", "/api/forecast/tmd/daily"}
 
-        elif is_openmeteo:
-            # Proxy to Open-Meteo API (free, no API key required)
-            query_params = urllib.parse.parse_qs(parsed_url.query)
-            lat = query_params.get('lat', [''])[0]
-            lon = query_params.get('lon', [''])[0]
-
-            if not lat or not lon:
-                self.send_response(400)
-                self.send_header('Content-Type', 'application/json')
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Missing parameters (lat, lon)"}).encode('utf-8'))
-                return
-
-            # Request precipitation_probability, cape, dewpoint_2m, surface_pressure for 10 days
-            openmeteo_url = (
-                f"https://api.open-meteo.com/v1/forecast"
-                f"?latitude={lat}&longitude={lon}"
-                f"&hourly=precipitation_probability,cape,dewpoint_2m,surface_pressure"
-                f"&timezone=Asia%2FBangkok"
-                f"&forecast_days=10"
+        if parsed_url.path == "/health":
+            self.respond_json(
+                {
+                    "status": "ok",
+                    "service": "rain-forecast-dashboard",
+                    "tmd_configured": bool(os.getenv("TMD_API_TOKEN")),
+                }
             )
+            return
 
-            print(f"Proxying Open-Meteo API request to: {openmeteo_url}")
+        if parsed_url.path in openmeteo_paths | tmd_hourly_paths | tmd_daily_paths:
+            if not lat or not lon:
+                self.respond_json({"error": "Missing parameters (lat, lon)"}, status=400)
+                return
 
-            try:
-                with urllib.request.urlopen(openmeteo_url, timeout=10) as response:
-                    res_data = response.read()
-                    self.send_response(200)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_header('Access-Control-Allow-Origin', '*')
-                    self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
-                    self.end_headers()
-                    self.wfile.write(res_data)
-                    print("Open-Meteo proxy request completed successfully!")
-            except Exception as e:
-                print(f"Error during Open-Meteo proxy request: {str(e)}")
-                self.send_response(500)
-                self.send_header('Content-Type', 'application/json')
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+        if parsed_url.path in openmeteo_paths:
+            self.handle_openmeteo_forecast(lat, lon)
+            return
 
-        else:
-            # Delegate to standard SimpleHTTPRequestHandler to serve static files
-            super().do_GET()
+        if parsed_url.path in tmd_hourly_paths:
+            self.handle_tmd_forecast(lat, lon, "hourly", query_params)
+            return
 
-# Set reuse address option to avoid port block on reload
-class ReusableTCPServer(socketserver.TCPServer):
+        if parsed_url.path in tmd_daily_paths:
+            self.handle_tmd_forecast(lat, lon, "daily", query_params)
+            return
+
+        super().do_GET()
+
+
+class ThreadingReusableTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     allow_reuse_address = True
+    daemon_threads = True
 
-print(f"Starting server with TMD API Proxy on port {PORT}...")
+
+load_env_file(ENV_PATH)
+PORT = int(os.getenv("PORT", str(DEFAULT_PORT)))
+
+print(f"Starting server with forecast proxy on port {PORT}...")
 try:
-    with ReusableTCPServer(("", PORT), TmdProxyHandler) as httpd:
+    with ThreadingReusableTCPServer(("", PORT), ForecastProxyHandler) as httpd:
         print(f"Server successfully running at: http://localhost:{PORT}")
-        print("Serving static files and routing /api/tmd -> data.tmd.go.th")
+        print("Serving static files and routing /api/forecast/* endpoints")
         httpd.serve_forever()
-except Exception as e:
-    print(f"Failed to start server: {e}")
+except Exception as error:
+    print(f"Failed to start server: {error}")
     sys.exit(1)

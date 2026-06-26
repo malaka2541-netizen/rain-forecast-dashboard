@@ -1,8 +1,5 @@
 // Rain Forecast Dashboard Logic - API Only Mode (Light Theme Only)
 
-// User's Access Token (JWT) pre-populated
-const userDefaultToken = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjhiNDQ0ZGIwMzUzNmY5MGE3ZTJkN2M3ZGM2YWIzYzg0YWRlYWZmN2JhZmE3MDJiNDc4ZTYwZjc5NmI3NGVmYTUwYzBhNDdjNTRlODY2NGMwIn0.eyJhdWQiOiIyIiwianRpIjoiOGI0NDRkYjAzNTM2ZjkwYTdlMmQ3YzdkYzZhYjNjODRhZGVhZmY3YmFmYTcwMmI0NzhlNjBmNzk2Yjc0ZWZhNTBjMGE0N2M1NGU4NjY0YzAiLCJpYXQiOjE3ODI0NjMwNzAsIm5iZiI6MTc4MjQ2MzA3MCwiZXhwIjoxODEzOTk5MDcwLCJzdWIiOiI1NDg5Iiwic2NvcGVzIjpbXX0.qdKrx5cJz8XU_kHCamlVOxF6pXxCSsdNgZolUkTeYlN6WyzEHhmBPr7htLD2JqBpGeiyJw2rI4OhllSsjhR5lfBWIGd2Pp38ea-AyWZePHl6J1fntFMbzTKcTIAwZAf5tuUyg37LgWpPxSAC_xWNNjVrDv05KOPuEGPMpbMBIj_G9rCo-N9ChzoPzUfUpEjto4phKH_XH7rUN3NUlIpBc9-GY7hK7I-e-HmIIRkNesOgY-BLj1xvu86qp8G_ZL4V_gKnD4JBlP1-ybeL6Pgnw8WXfd988eOfDSsjgO5q-TMWf_YuGYU6ED667RvfahqPYMR5Ar1TfWa9asWfEwM2UEWOTNaK0Ilv4QXc4vwqdx_mwpJHK4Wl_3Px3q3JQNN3e5P07fxPId3_TkBN6G0Obea6H7lNBjuYg5gUtxM6xupc0JFmkfM1NFMn-us-u331IXx_BoLVBGycJBGgfs4hpsTKEe49EslaXqoLrepIQIsASTdaTzbC_ua5K1o4S4h_woprOz11zHP6uIMi7aEt-DhLV_6_c8q4stLf2jjZaRRHYjacQjcR3edPt0W8oAdv8SOIipY3A17VFQnjdQr67m5m2r4rTNc1uEnWUPg-Pq1UnbUxoHEPqJM6XvjnSBs_DCk1hqji9pAIMvUkSc6v74vAc-afxNih8I_v_W4FlcM";
-
 // Default coordinates and location name
 const DEFAULT_LAT = 13.7563;
 const DEFAULT_LON = 100.5018;
@@ -17,6 +14,11 @@ let currentLocName = localStorage.getItem("appLocName") || DEFAULT_LOCATION_NAME
 let activeForecastData = [];
 let selectedDate = "";
 let forecastChartInstance = null;
+let sourceComparisonState = {
+  openMeteoText: "กำลังโหลด...",
+  tmdText: "รอการเชื่อมต่อ...",
+  tmdConfigured: null
+};
 
 // DOM Elements
 const displayLocation = document.getElementById("display-location");
@@ -33,16 +35,333 @@ const forecastTableBody = document.getElementById("forecast-table-body");
 
 const loadingOverlay = document.getElementById("loading-overlay");
 const loadingText = document.getElementById("loading-text");
+const openMeteoSourceStatus = document.getElementById("openmeteo-source-status");
+const tmdSourceStatus = document.getElementById("tmd-source-status");
+const tableHoverTooltip = document.createElement("div");
+tableHoverTooltip.className = "forecast-hover-tooltip hidden";
+document.body.appendChild(tableHoverTooltip);
+
+function clampProbability(probabilityPercent) {
+  const numericValue = Number(probabilityPercent);
+  if (!Number.isFinite(numericValue)) return null;
+  return Math.max(0, Math.min(1, parseFloat((numericValue / 100).toFixed(2))));
+}
+
+function getWeatherDetails(weatherCode, precipitationMm = 0, windGustKmh = 0) {
+  const code = Number.isFinite(Number(weatherCode)) ? Number(weatherCode) : null;
+  const rainMm = Number.isFinite(Number(precipitationMm)) ? Number(precipitationMm) : 0;
+  const gustKmh = Number.isFinite(Number(windGustKmh)) ? Number(windGustKmh) : 0;
+
+  if ([95, 96, 99].includes(code)) {
+    return {
+      icon: "⛈️",
+      label: code === 99 ? "พายุฝนฟ้าคะนองรุนแรง มีโอกาสลูกเห็บ" : "พายุฝนฟ้าคะนอง",
+      severity: "storm",
+      isStorm: true
+    };
+  }
+
+  if ([65, 80, 81, 82].includes(code)) {
+    return {
+      icon: "🌊",
+      label: rainMm >= 10 ? "ฝนตกหนักมาก" : "ฝนตกหนัก",
+      severity: "heavy",
+      isStorm: gustKmh >= 50
+    };
+  }
+
+  if ([61, 63, 66, 67].includes(code)) {
+    return {
+      icon: "☔",
+      label: "ฝนตกปานกลาง",
+      severity: "moderate",
+      isStorm: false
+    };
+  }
+
+  if ([51, 53, 55, 56, 57].includes(code)) {
+    return {
+      icon: "🌦️",
+      label: "ฝนปรอยๆ",
+      severity: "drizzle",
+      isStorm: false
+    };
+  }
+
+  if ([45, 48].includes(code)) {
+    return {
+      icon: "🌫️",
+      label: "หมอก",
+      severity: "calm",
+      isStorm: false
+    };
+  }
+
+  if ([1, 2].includes(code)) {
+    return {
+      icon: "⛅",
+      label: "เมฆบางส่วน",
+      severity: "calm",
+      isStorm: false
+    };
+  }
+
+  if (code === 3) {
+    return {
+      icon: "☁️",
+      label: "เมฆมาก",
+      severity: "calm",
+      isStorm: false
+    };
+  }
+
+  if (code === 0) {
+    return {
+      icon: "☀️",
+      label: "ท้องฟ้าโปร่ง",
+      severity: "calm",
+      isStorm: false
+    };
+  }
+
+  return {
+    icon: rainMm > 0 ? "🌧️" : "☁️",
+    label: rainMm > 0 ? "มีฝน" : "สภาพอากาศทั่วไป",
+    severity: rainMm > 0 ? "moderate" : "calm",
+    isStorm: false
+  };
+}
+
+function formatMillimeters(value) {
+  return Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)} มม.` : "-";
+}
+
+function formatWindKmh(value) {
+  return Number.isFinite(Number(value)) ? `${Math.round(Number(value))} กม./ชม.` : "-";
+}
+
+function getEntryProbability(entry) {
+  return entry && typeof entry.probability === "number" ? entry.probability : null;
+}
+
+function buildTableTooltipHtml(hour, entry) {
+  const weather = getWeatherDetails(entry.weatherCode, entry.precipitation, entry.windGust);
+  const stormAlert = weather.isStorm || entry.windGust >= 50
+    ? `<div class="forecast-hover-line forecast-hover-alert">แจ้งเตือน: เสี่ยงพายุหรือฝนรุนแรง</div>`
+    : "";
+  return `
+    <div class="forecast-hover-title">${hour} น.</div>
+    <div class="forecast-hover-line">โอกาสเกิดฝน: ${Math.round(entry.probability * 100)}%</div>
+    <div class="forecast-hover-line">สภาพอากาศ: ${weather.label} ${weather.icon}</div>
+    <div class="forecast-hover-line">ปริมาณฝนคาดการณ์: ${formatMillimeters(entry.precipitation)}</div>
+    <div class="forecast-hover-line">ลมกระโชก: ${formatWindKmh(entry.windGust)}</div>
+    ${stormAlert}
+  `;
+}
+
+function showTableTooltip(html, event) {
+  tableHoverTooltip.innerHTML = html;
+  tableHoverTooltip.classList.remove("hidden");
+  moveTableTooltip(event);
+}
+
+function moveTableTooltip(event) {
+  if (tableHoverTooltip.classList.contains("hidden")) return;
+
+  const offsetX = 18;
+  const offsetY = 18;
+  const tooltipWidth = tableHoverTooltip.offsetWidth || 260;
+  const tooltipHeight = tableHoverTooltip.offsetHeight || 120;
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  let left = event.clientX + offsetX;
+  let top = event.clientY + offsetY;
+
+  if (left + tooltipWidth > viewportWidth - 16) {
+    left = event.clientX - tooltipWidth - 16;
+  }
+
+  if (top + tooltipHeight > viewportHeight - 16) {
+    top = event.clientY - tooltipHeight - 16;
+  }
+
+  tableHoverTooltip.style.left = `${Math.max(12, left)}px`;
+  tableHoverTooltip.style.top = `${Math.max(12, top)}px`;
+}
+
+function hideTableTooltip() {
+  tableHoverTooltip.classList.add("hidden");
+}
+
+function renderSourceComparison() {
+  openMeteoSourceStatus.textContent = sourceComparisonState.openMeteoText;
+  tmdSourceStatus.textContent = sourceComparisonState.tmdText;
+}
+
+function flattenForecastEntries(forecastDays) {
+  const entries = [];
+  forecastDays.forEach(day => {
+    Object.entries(day.values).forEach(([hour, entry]) => {
+      entries.push({
+        date: day.date,
+        hour,
+        entry
+      });
+    });
+  });
+  return entries.sort((a, b) => `${a.date}T${a.hour}`.localeCompare(`${b.date}T${b.hour}`));
+}
+
+function buildOpenMeteoStatusText(forecastDays) {
+  const entries = flattenForecastEntries(forecastDays).slice(0, 24);
+  const peakEntry = entries.reduce((best, current) => {
+    const probability = getEntryProbability(current.entry);
+    if (probability === null) return best;
+    if (!best || probability > best.probability) {
+      return { ...current, probability };
+    }
+    return best;
+  }, null);
+
+  if (!peakEntry) {
+    return "ยังไม่มีข้อมูลรายชั่วโมง";
+  }
+
+  return `24 ชม. สูงสุด ${Math.round(peakEntry.probability * 100)}% ที่ ${peakEntry.hour}`;
+}
+
+function normalizeTmdDailyForecast(responseData) {
+  const source = responseData?.WeatherForecasts?.[0];
+  const forecasts = source?.forecasts || [];
+  return forecasts.map(item => ({
+    date: item.time ? item.time.substring(0, 10) : "",
+    rainMm: Number(item.data?.rain ?? 0),
+    tempMin: Number(item.data?.tc_min ?? 0),
+    tempMax: Number(item.data?.tc_max ?? 0),
+    cond: item.data?.cond ?? null
+  }));
+}
+
+function normalizeTmdHourlyForecast(responseData) {
+  const source = responseData?.WeatherForecasts?.[0];
+  const forecasts = source?.forecasts || [];
+  return forecasts.map(item => ({
+    time: item.time || "",
+    rainMm: Number(item.data?.rain ?? 0),
+    temperature: Number(item.data?.tc ?? 0),
+    humidity: Number(item.data?.rh ?? 0),
+    cond: item.data?.cond ?? null
+  }));
+}
+
+function buildTmdStatusText(dailyForecasts, hourlyForecasts) {
+  if (!dailyForecasts.length && !hourlyForecasts.length) {
+    return "ยังไม่มีข้อมูลจาก TMD";
+  }
+
+  const nextThreeDays = dailyForecasts
+    .slice(0, 3)
+    .map(item => `${formatDateTab(item.date)} ${item.rainMm.toFixed(1)} มม.`)
+    .join(" | ");
+
+  const next24HoursMaxRain = hourlyForecasts
+    .slice(0, 24)
+    .reduce((maxRain, item) => Math.max(maxRain, item.rainMm), 0);
+
+  if (nextThreeDays) {
+    return `24 ชม. สูงสุด ${next24HoursMaxRain.toFixed(1)} มม. | ${nextThreeDays}`;
+  }
+
+  return `24 ชม. สูงสุด ${next24HoursMaxRain.toFixed(1)} มม.`;
+}
+
+async function fetchOpenMeteoForecast(lat, lon) {
+  const response = await fetch(`/api/forecast/openmeteo?lat=${lat}&lon=${lon}&_t=${Date.now()}`);
+  if (!response.ok) {
+    throw new Error(`Open-Meteo returned status ${response.status}`);
+  }
+
+  const data = await response.json();
+  const hourly = data.hourly;
+  const grouped = {};
+
+  hourly.time.forEach((timeStr, index) => {
+    const [datePart, timePart] = timeStr.split("T");
+    const hourKey = timePart.substring(0, 5);
+    if (!grouped[datePart]) grouped[datePart] = {};
+
+    const probability = clampProbability(hourly.precipitation_probability?.[index]);
+    const precipitation = Number(hourly.precipitation?.[index] ?? 0);
+    const weatherCode = Number(hourly.weather_code?.[index] ?? 0);
+    const windSpeed = Number(hourly.wind_speed_10m?.[index] ?? 0);
+    const windGust = Number(hourly.wind_gusts_10m?.[index] ?? 0);
+
+    grouped[datePart][hourKey] = {
+      probability,
+      precipitation: Number.isFinite(precipitation) ? precipitation : 0,
+      weatherCode: Number.isFinite(weatherCode) ? weatherCode : 0,
+      windSpeed: Number.isFinite(windSpeed) ? windSpeed : 0,
+      windGust: Number.isFinite(windGust) ? windGust : 0
+    };
+  });
+
+  const forecastDays = Object.keys(grouped)
+    .sort()
+    .map(dateStr => ({
+      date: dateStr,
+      values: grouped[dateStr]
+    }));
+
+  return {
+    forecastDays,
+    statusText: buildOpenMeteoStatusText(forecastDays)
+  };
+}
+
+async function fetchTmdForecastSummary(lat, lon) {
+  const [dailyResponse, hourlyResponse] = await Promise.all([
+    fetch(`/api/forecast/tmd/daily?lat=${lat}&lon=${lon}&_t=${Date.now()}`),
+    fetch(`/api/forecast/tmd/hourly?lat=${lat}&lon=${lon}&_t=${Date.now()}`)
+  ]);
+
+  const dailyData = await dailyResponse.json();
+  const hourlyData = await hourlyResponse.json();
+
+  if (!dailyResponse.ok) {
+    const dailyError = new Error(dailyData.error || `TMD daily returned status ${dailyResponse.status}`);
+    dailyError.status = dailyResponse.status;
+    dailyError.payload = dailyData;
+    throw dailyError;
+  }
+
+  if (!hourlyResponse.ok) {
+    const hourlyError = new Error(hourlyData.error || `TMD hourly returned status ${hourlyResponse.status}`);
+    hourlyError.status = hourlyResponse.status;
+    hourlyError.payload = hourlyData;
+    throw hourlyError;
+  }
+
+  const dailyForecasts = normalizeTmdDailyForecast(dailyData);
+  const hourlyForecasts = normalizeTmdHourlyForecast(hourlyData);
+
+  return {
+    dailyForecasts,
+    hourlyForecasts,
+    statusText: buildTmdStatusText(dailyForecasts, hourlyForecasts)
+  };
+}
 
 // Initialize application
 document.addEventListener("DOMContentLoaded", () => {
   // Fetch real data on load automatically
-  fetchTmdNwpData();
+  renderSourceComparison();
+  fetchDashboardData();
   
-  // Auto-refresh data from TMD API every 30 minutes
+  // Auto-refresh forecast data every 30 minutes
   setInterval(() => {
-    console.log("Auto-refreshing weather data from TMD API (every 30 minutes)...");
-    fetchTmdNwpData();
+    console.log("Auto-refreshing forecast data (every 30 minutes)...");
+    fetchDashboardData();
   }, 30 * 60 * 1000); // 1,800,000 ms
 
   // --- Location Map & Autocomplete Logic ---
@@ -245,7 +564,7 @@ document.addEventListener("DOMContentLoaded", () => {
       
       // Clear data and fetch new location
       activeForecastData = [];
-      fetchTmdNwpData();
+      fetchDashboardData();
     });
   }
 });
@@ -307,7 +626,8 @@ function updateKpiAnalytics() {
 
   // Global calculations across all forecast data
   activeForecastData.forEach(day => {
-    Object.entries(day.values).forEach(([hour, val]) => {
+    Object.entries(day.values).forEach(([hour, entry]) => {
+      const val = getEntryProbability(entry);
       if (val !== null) {
         totalSum += val;
         totalCount++;
@@ -331,7 +651,8 @@ function updateKpiAnalytics() {
   let selectedDayCount = 0;
   const currentDayData = activeForecastData.find(d => d.date === selectedDate);
   if (currentDayData) {
-    Object.values(currentDayData.values).forEach(val => {
+    Object.values(currentDayData.values).forEach(entry => {
+      const val = getEntryProbability(entry);
       if (val !== null) {
         selectedDaySum += val;
         selectedDayCount++;
@@ -381,12 +702,32 @@ function renderTable() {
     const sortedHours = Object.keys(day.values).sort();
     sortedHours.forEach(hour => {
       const cell = document.createElement("td");
-      const val = day.values[hour];
+      const entry = day.values[hour];
+      const val = getEntryProbability(entry);
       
       if (val === null || val === undefined) {
         cell.innerText = "-";
       } else {
-        cell.innerText = `${Math.round(val * 100)}%`;
+        const weather = getWeatherDetails(entry.weatherCode, entry.precipitation, entry.windGust);
+        const valueWrapper = document.createElement("span");
+        valueWrapper.className = "table-value";
+        valueWrapper.textContent = `${Math.round(val * 100)}%`;
+
+        const iconWrapper = document.createElement("span");
+        iconWrapper.className = "table-icon";
+        iconWrapper.textContent = weather.icon;
+
+        cell.appendChild(valueWrapper);
+
+        if (weather.severity !== "calm" || entry.precipitation > 0) {
+          cell.appendChild(iconWrapper);
+        }
+        cell.setAttribute("aria-label", `${hour} ${weather.label}`);
+        cell.addEventListener("mouseenter", (event) => {
+          showTableTooltip(buildTableTooltipHtml(hour, entry), event);
+        });
+        cell.addEventListener("mousemove", moveTableTooltip);
+        cell.addEventListener("mouseleave", hideTableTooltip);
         
         if (val <= 0.30) {
           cell.className = "cell-low";
@@ -394,6 +735,14 @@ function renderTable() {
           cell.className = "cell-med";
         } else {
           cell.className = "cell-high";
+        }
+
+        if (weather.severity === "heavy") {
+          cell.classList.add("cell-heavy");
+        }
+
+        if (weather.isStorm) {
+          cell.classList.add("cell-storm");
         }
       }
       row.appendChild(cell);
@@ -488,7 +837,10 @@ function renderChart() {
   if (!currentDayData) return;
 
   const hours = Object.keys(currentDayData.values).sort();
-  const values = hours.map(h => currentDayData.values[h] !== null ? Math.round(currentDayData.values[h] * 100) : null);
+  const values = hours.map(hour => {
+    const probability = getEntryProbability(currentDayData.values[hour]);
+    return probability !== null ? Math.round(probability * 100) : null;
+  });
 
   const ctx = document.getElementById("forecastChart").getContext("2d");
   
@@ -549,7 +901,16 @@ function renderChart() {
               return (isDay ? "☀️ กลางวัน" : "🌙 กลางคืน") + " - " + label;
             },
             label: function(context) {
-              return `โอกาสฝน: ${context.parsed.y}%`;
+              const hour = context.label;
+              const entry = currentDayData.values[hour];
+              const weather = getWeatherDetails(entry.weatherCode, entry.precipitation, entry.windGust);
+
+              return [
+                `โอกาสฝน: ${context.parsed.y}%`,
+                `ลักษณะอากาศ: ${weather.label} ${weather.icon}`,
+                `ปริมาณฝน: ${formatMillimeters(entry.precipitation)}`,
+                `ลมกระโชก: ${formatWindKmh(entry.windGust)}`
+              ];
             }
           }
         }
@@ -589,49 +950,48 @@ function renderChart() {
   });
 }
 
-// Fetch weather forecast from Open-Meteo API
-async function fetchTmdNwpData() {
-  showLoading("กำลังเรียกข้อมูลพยากรณ์อากาศรายชั่วโมงจาก Open-Meteo Ensemble...");
-  const url = `/api/openmeteo?lat=${currentLat}&lon=${currentLon}&_t=${Date.now()}`;
+async function fetchDashboardData() {
+  showLoading("กำลังเรียกข้อมูลพยากรณ์จาก Open-Meteo และตรวจสัญญาณร่วมกับ TMD...");
 
   try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Open-Meteo returned status ${response.status}`);
-    const data = await response.json();
-    const hourly = data.hourly;
+    const [openMeteoResult, tmdResult] = await Promise.allSettled([
+      fetchOpenMeteoForecast(currentLat, currentLon),
+      fetchTmdForecastSummary(currentLat, currentLon)
+    ]);
 
-    // Parse into { date: 'YYYY-MM-DD', values: { 'HH:00': pop } }
-    const grouped = {};
-    hourly.time.forEach((timeStr, i) => {
-      // timeStr format: "2026-06-26T15:00"
-      const [datePart, timePart] = timeStr.split("T");
-      const hourKey = timePart.substring(0, 5); // "HH:MM"
-      if (!grouped[datePart]) grouped[datePart] = {};
-
-      const popValue = (hourly.precipitation_probability[i] ?? 0) / 100; // 0-100 -> 0.0-1.0
-      grouped[datePart][hourKey] = parseFloat(popValue.toFixed(2));
-    });
-
-    // Convert grouped object to array sorted by date
-    const apiParsedForecasts = [];
-    const sortedDates = Object.keys(grouped).sort();
-    sortedDates.forEach(dateStr => {
-      apiParsedForecasts.push({
-        date: dateStr,
-        values: grouped[dateStr]
-      });
-    });
-
-    if (apiParsedForecasts.length > 0) {
-      activeForecastData = apiParsedForecasts;
-      displayLocation.innerText = `${currentLocName} (พยากรณ์อากาศ Open-Meteo Ensemble 10 วัน)`;
-      console.log("Weather data loaded from Open-Meteo successfully.");
-      loadDataAndRefresh();
-    } else {
-      alert("ไม่สามารถสร้างชุดข้อมูลพยากรณ์อากาศจาก Open-Meteo ได้");
+    if (openMeteoResult.status !== "fulfilled") {
+      throw openMeteoResult.reason;
     }
+
+    const { forecastDays, statusText } = openMeteoResult.value;
+    if (!forecastDays.length) {
+      throw new Error("ไม่สามารถสร้างชุดข้อมูลพยากรณ์อากาศจาก Open-Meteo ได้");
+    }
+
+    activeForecastData = forecastDays;
+    sourceComparisonState.openMeteoText = statusText;
+    displayLocation.innerText = `${currentLocName} (พยากรณ์อากาศ Open-Meteo Ensemble 10 วัน)`;
+    console.log("Weather data loaded from Open-Meteo successfully.");
+    loadDataAndRefresh();
+
+    if (tmdResult.status === "fulfilled") {
+      sourceComparisonState.tmdText = tmdResult.value.statusText;
+      sourceComparisonState.tmdConfigured = true;
+    } else {
+      const errorPayload = tmdResult.reason?.payload;
+      const isConfigIssue = tmdResult.reason?.status === 503 || errorPayload?.configured === false;
+      sourceComparisonState.tmdConfigured = !isConfigIssue;
+      sourceComparisonState.tmdText = isConfigIssue
+        ? "ยังไม่ได้ตั้งค่า TMD API token บนเซิร์ฟเวอร์"
+        : "เชื่อมต่อ TMD ไม่สำเร็จในรอบนี้";
+      console.warn("TMD cross-check unavailable:", tmdResult.reason);
+    }
+
+    renderSourceComparison();
   } catch (error) {
     console.error(error);
+    sourceComparisonState.openMeteoText = "โหลดข้อมูลไม่สำเร็จ";
+    renderSourceComparison();
     alert(`ดึงข้อมูลไม่สำเร็จ: ${error.message}\nกรุณาตรวจสอบว่าเซิร์ฟเวอร์ Proxy ทำงานตามปกติ`);
   } finally {
     hideLoading();

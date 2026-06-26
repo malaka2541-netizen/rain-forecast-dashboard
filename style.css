@@ -266,6 +266,10 @@ body {
   .top-row-grid {
     grid-template-columns: 1fr;
   }
+
+  .source-comparison {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Left Panel & Controls */
@@ -506,6 +510,39 @@ select:focus {
   font-weight: 500;
 }
 
+.source-comparison {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.source-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid var(--card-border);
+  text-align: left;
+}
+
+.source-chip-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.source-chip-value {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-main);
+  line-height: 1.35;
+}
+
 /* Right Panel Layout */
 .right-panel {
   display: flex;
@@ -726,6 +763,17 @@ select:focus {
   border-bottom: 1px solid var(--card-border);
 }
 
+.forecast-table td:not(:first-child) {
+  position: relative;
+  cursor: help;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.forecast-table td:not(:first-child):hover {
+  transform: translateY(-1px);
+  box-shadow: inset 0 0 0 1px rgba(2, 132, 199, 0.18);
+}
+
 .forecast-table td:first-child {
   text-align: left;
   padding-left: 1rem;
@@ -752,6 +800,62 @@ select:focus {
 .cell-high {
   background-color: var(--high-bg) !important;
   color: var(--high-text) !important;
+  font-weight: 700;
+}
+
+.cell-heavy {
+  box-shadow: inset 0 0 0 1px rgba(217, 106, 27, 0.14);
+}
+
+.cell-storm {
+  background-image: linear-gradient(135deg, rgba(239, 68, 68, 0.14), rgba(249, 115, 22, 0.18)) !important;
+  box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.22);
+}
+
+.table-value {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.table-icon {
+  display: inline-block;
+  margin-left: 0.3rem;
+  font-size: 0.88rem;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.forecast-hover-tooltip {
+  position: fixed;
+  z-index: 1200;
+  min-width: 220px;
+  max-width: 280px;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.16);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  pointer-events: none;
+}
+
+.forecast-hover-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 0.35rem;
+}
+
+.forecast-hover-line {
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--text-main);
+}
+
+.forecast-hover-alert {
+  margin-top: 0.35rem;
+  color: #b45309;
   font-weight: 700;
 }
 
