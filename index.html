@@ -3,34 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="ระบบวิเคราะห์และพยากรณ์โอกาสเกิดฝนล่วงหน้า 10 วัน (3 วันแรกรายชั่วโมง วันที่เหลือราย 3 ชั่วโมง) จากกรมอุตุนิยมวิทยา ตรวจสอบและแบ่งระดับความเสี่ยงการเกิดฝนอย่างถูกต้อง">
-  <meta name="keywords" content="พยากรณ์ฝน, โอกาสเกิดฝน, กรมอุตุนิยมวิทยา, TMD API, รายงานสภาพอากาศ">
+  <meta name="description" content="ระบบพยากรณ์โอกาสเกิดฝนล่วงหน้า 10 วัน พร้อมมุมมองรายชั่วโมงเพื่อช่วยวางแผนงานกลางแจ้งจากข้อมูล Open-Meteo และ TMD">
+  <meta name="keywords" content="พยากรณ์ฝน, โอกาสเกิดฝน, Open-Meteo, TMD, งานกลางแจ้ง, เทคอนกรีต">
   <title>Rain Forecast Dashboard - ระบบพยากรณ์โอกาสเกิดฝน</title>
-  
-  <!-- Fonts & Icons -->
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
-  <!-- Custom Styling -->
+
   <link rel="stylesheet" href="style.css">
-  
-  <!-- SheetJS & Chart.js via CDN -->
+
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <!-- Leaflet CSS & JS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 </head>
 <body class="light-theme">
-  <!-- Decorative Background Glows -->
   <div class="glow-bg glow-1"></div>
   <div class="glow-bg glow-2"></div>
-  
+
   <div class="app-container">
-    <!-- Header -->
     <header class="main-header glass-card">
       <div class="header-logo">
         <div class="logo-icon">
@@ -41,20 +35,15 @@
           <span>TMD NWP Dashboard</span>
         </div>
       </div>
-      
-      <div class="header-actions">
-      </div>
+
+      <div class="header-actions"></div>
     </header>
 
-    <!-- Main Dashboard Grid (Full Width Layout) -->
     <main class="dashboard-grid-full">
-      <!-- Top Row: Location Profile + KPIs -->
       <div class="top-row-grid">
-        <!-- Location Profile Card -->
         <div id="location-card" class="location-profile glass-card clickable-card" title="คลิกเพื่อตั้งค่าสถานที่">
           <div class="weather-art">
             <div id="weather-icon-dynamic" class="weather-icon-wrapper">
-              <!-- Dynamically replaced weather icons -->
               <i class="fa-solid fa-cloud-sun-rain"></i>
             </div>
             <div class="temp-display">
@@ -78,52 +67,46 @@
           </div>
         </div>
 
-        <!-- KPI Summary Cards -->
         <div class="kpi-container">
           <div class="kpi-card glass-card">
-            <div class="kpi-icon icon-blue"><i class="fa-solid fa-umbrella"></i></div>
+            <div class="kpi-icon icon-blue"><i class="fa-solid fa-cloud-rain"></i></div>
             <div class="kpi-info">
-              <h3>โอกาสเกิดฝนสูงสุด</h3>
-              <p id="kpi-max-chance">98%</p>
-              <span id="kpi-max-time">02 ก.ค. (19:00)</span>
+              <h3>ช่วงฝนสูงสุด</h3>
+              <p id="kpi-peak-window">17:00-19:00</p>
+              <span id="kpi-peak-detail">สูงสุด 95% | ฝนหนัก</span>
             </div>
           </div>
-          
+
           <div class="kpi-card glass-card">
-            <div class="kpi-icon icon-yellow"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <div class="kpi-icon icon-green"><i class="fa-solid fa-clock"></i></div>
             <div class="kpi-info">
-              <h3>ชั่วโมงเสี่ยงภัยสูง</h3>
-              <p id="kpi-high-risk-hours">45 ชม.</p>
-              <span>มีโอกาสเกิดฝน > 70%</span>
+              <h3>ช่วงฝนต่ำต่อเนื่อง</h3>
+              <p id="kpi-low-window">08:00-13:00</p>
+              <span id="kpi-low-detail">รวม 6 ชม. | สูงสุดไม่เกิน 30%</span>
             </div>
           </div>
-          
+
           <div class="kpi-card glass-card">
-            <div class="kpi-icon icon-green"><i class="fa-solid fa-droplet-slash"></i></div>
+            <div class="kpi-icon icon-red"><i class="fa-solid fa-cloud-showers-heavy"></i></div>
             <div class="kpi-info">
-              <h3>ชั่วโมงปลอดฝน</h3>
-              <p id="kpi-safe-hours">32 ชม.</p>
-              <span>มีโอกาสเกิดฝน &le; 30%</span>
+              <h3>ความรุนแรงฝนสูงสุด</h3>
+              <p id="kpi-intensity" class="kpi-value-compact">ฝนหนัก</p>
+              <span id="kpi-intensity-detail">17:00 | 4.9 มม. | ลม 28 กม./ชม.</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Main Chart Card -->
       <div class="chart-card glass-card">
         <div class="chart-header">
           <h2><i class="fa-solid fa-chart-line"></i> แนวโน้มพยากรณ์รายชั่วโมง</h2>
-          <!-- Day Filter Navigation -->
-          <div id="day-tabs" class="day-tabs">
-            <!-- Dynamic Tabs Inserted Here -->
-          </div>
+          <div id="day-tabs" class="day-tabs"></div>
         </div>
         <div class="chart-wrapper">
           <canvas id="forecastChart"></canvas>
         </div>
       </div>
 
-      <!-- Forecast Table Card -->
       <div class="table-card glass-card">
         <div class="table-header">
           <h2><i class="fa-solid fa-table"></i> ตารางแสดงโอกาสเกิดฝนรายชั่วโมง</h2>
@@ -164,25 +147,17 @@
                 <th>23:00</th>
               </tr>
             </thead>
-            <tbody id="forecast-table-body">
-              <!-- Dynamic rows filled by JavaScript -->
-            </tbody>
+            <tbody id="forecast-table-body"></tbody>
           </table>
         </div>
       </div>
     </main>
 
-    <!-- Footer -->
     <footer class="app-footer glass-card">
       <p>&copy; 2026 Rain Forecast Dashboard | ข้อมูลอ้างอิงและพยากรณ์จาก Open-Meteo API (Ensemble Forecast)</p>
     </footer>
   </div>
 
-
-
-
-
-  <!-- Location Settings Modal -->
   <div id="location-modal" class="modal-overlay hidden">
     <div class="modal-card animate-modal">
       <div class="modal-header">
@@ -193,7 +168,7 @@
           <label>จังหวัด (Province)</label>
           <div class="input-with-icon">
             <i class="fa-solid fa-map"></i>
-            <input type="text" id="input-province" placeholder="พิมพ์ชื่อจังหวัด..." list="province-list" autocomplete="off" />
+            <input type="text" id="input-province" placeholder="พิมพ์ชื่อจังหวัด..." list="province-list" autocomplete="off">
             <datalist id="province-list"></datalist>
           </div>
         </div>
@@ -211,15 +186,15 @@
             </button>
           </div>
         </div>
-        
+
         <div class="map-wrapper" style="margin-top: 1.5rem;">
           <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.9rem; color: var(--text-main);">ปักหมุดบนแผนที่ (คลิกเพื่อเลือกพิกัด)</label>
           <div id="map-container" style="height: 250px; width: 100%; border-radius: 8px; border: 1px solid var(--input-border); z-index: 1;"></div>
         </div>
 
-        <input type="hidden" id="input-lat" />
-        <input type="hidden" id="input-lon" />
-        <input type="hidden" id="input-loc-name" />
+        <input type="hidden" id="input-lat">
+        <input type="hidden" id="input-lon">
+        <input type="hidden" id="input-loc-name">
       </div>
       <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid var(--card-border);">
         <button id="btn-cancel-loc" style="padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid var(--card-border); background: var(--input-bg); color: var(--text-main); cursor: pointer;">ยกเลิก</button>
@@ -228,7 +203,6 @@
     </div>
   </div>
 
-  <!-- Loading Overlay -->
   <div id="loading-overlay" class="modal-overlay hidden">
     <div class="loading-spinner-wrapper">
       <div class="loading-spinner"></div>

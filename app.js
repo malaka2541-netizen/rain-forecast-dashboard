@@ -1,4 +1,4 @@
-// Rain Forecast Dashboard Logic - API Only Mode (Light Theme Only)
+﻿// Rain Forecast Dashboard Logic - API Only Mode (Light Theme Only)
 
 // Default coordinates and location name
 const DEFAULT_LAT = 13.7563;
@@ -24,10 +24,12 @@ let sourceComparisonState = {
 const displayLocation = document.getElementById("display-location");
 const displayDateRange = document.getElementById("display-date-range");
 const forecastAvgPercent = document.getElementById("forecast-avg-percent");
-const kpiMaxChance = document.getElementById("kpi-max-chance");
-const kpiMaxTime = document.getElementById("kpi-max-time");
-const kpiHighRiskHours = document.getElementById("kpi-high-risk-hours");
-const kpiSafeHours = document.getElementById("kpi-safe-hours");
+const kpiPeakWindow = document.getElementById("kpi-peak-window");
+const kpiPeakDetail = document.getElementById("kpi-peak-detail");
+const kpiLowWindow = document.getElementById("kpi-low-window");
+const kpiLowDetail = document.getElementById("kpi-low-detail");
+const kpiIntensity = document.getElementById("kpi-intensity");
+const kpiIntensityDetail = document.getElementById("kpi-intensity-detail");
 const weatherIconDynamic = document.getElementById("weather-icon-dynamic");
 
 const dayTabsContainer = document.getElementById("day-tabs");
@@ -142,6 +144,159 @@ function formatWindKmh(value) {
 
 function getEntryProbability(entry) {
   return entry && typeof entry.probability === "number" ? entry.probability : null;
+}
+
+function getSelectedDayEntries() {
+  const currentDayData = activeForecastData.find(day => day.date === selectedDate);
+  if (!currentDayData) return [];
+
+  return Object.keys(currentDayData.values)
+    .sort()
+    .map(hour => ({
+      hour,
+      entry: currentDayData.values[hour],
+      probability: getEntryProbability(currentDayData.values[hour])
+    }))
+    .filter(item => item.probability !== null);
+}
+
+function formatHourRange(startHour, endHour) {
+  if (!startHour || !endHour) return "-";
+  return startHour === endHour ? startHour : `${startHour}-${endHour}`;
+}
+
+function getWeatherSeverityRank(severity) {
+  switch (severity) {
+    case "storm":
+      return 4;
+    case "heavy":
+      return 3;
+    case "moderate":
+      return 2;
+    case "drizzle":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+function findPeakRainWindow(entries) {
+  if (!entries.length) return null;
+
+  let peakIndex = 0;
+  entries.forEach((item, index) => {
+    const currentScore = (item.probability ?? 0) * 1000 + (item.entry.precipitation ?? 0);
+    const bestScore = (entries[peakIndex].probability ?? 0) * 1000 + (entries[peakIndex].entry.precipitation ?? 0);
+    if (currentScore > bestScore) {
+      peakIndex = index;
+    }
+  });
+
+  let startIndex = peakIndex;
+  let endIndex = peakIndex;
+
+  if ((entries[peakIndex].probability ?? 0) >= 0.7) {
+    while (startIndex > 0 && (entries[startIndex - 1].probability ?? 0) >= 0.7) {
+      startIndex--;
+    }
+    while (endIndex < entries.length - 1 && (entries[endIndex + 1].probability ?? 0) >= 0.7) {
+      endIndex++;
+    }
+  }
+
+  const peakEntry = entries[peakIndex];
+  const weather = getWeatherDetails(
+    peakEntry.entry.weatherCode,
+    peakEntry.entry.precipitation,
+    peakEntry.entry.windGust
+  );
+
+  return {
+    startHour: entries[startIndex].hour,
+    endHour: entries[endIndex].hour,
+    probability: peakEntry.probability,
+    weather
+  };
+}
+
+function findLongestLowRainWindow(entries, threshold = 0.3) {
+  if (!entries.length) return null;
+
+  let bestWindow = null;
+  let currentStart = null;
+
+  for (let index = 0; index <= entries.length; index++) {
+    const item = entries[index];
+    const isLowRain = item && (item.probability ?? 1) <= threshold;
+
+    if (isLowRain && currentStart === null) {
+      currentStart = index;
+    }
+
+    if ((!isLowRain || index === entries.length) && currentStart !== null) {
+      const endIndex = index - 1;
+      const segment = entries.slice(currentStart, endIndex + 1);
+      const maxProbability = Math.max(...segment.map(segmentItem => segmentItem.probability ?? 0));
+      const candidate = {
+        startHour: entries[currentStart].hour,
+        endHour: entries[endIndex].hour,
+        hourCount: segment.length,
+        maxProbability
+      };
+
+      if (
+        !bestWindow ||
+        candidate.hourCount > bestWindow.hourCount ||
+        (candidate.hourCount === bestWindow.hourCount && candidate.maxProbability < bestWindow.maxProbability)
+      ) {
+        bestWindow = candidate;
+      }
+
+      currentStart = null;
+    }
+  }
+
+  return bestWindow;
+}
+
+function findStrongestRainProfile(entries) {
+  if (!entries.length) return null;
+
+  let best = null;
+
+  entries.forEach(item => {
+    const weather = getWeatherDetails(item.entry.weatherCode, item.entry.precipitation, item.entry.windGust);
+    const candidate = {
+      hour: item.hour,
+      probability: item.probability ?? 0,
+      precipitation: Number(item.entry.precipitation ?? 0),
+      windGust: Number(item.entry.windGust ?? 0),
+      weather,
+      severityRank: getWeatherSeverityRank(weather.severity)
+    };
+
+    if (!best) {
+      best = candidate;
+      return;
+    }
+
+    const candidateScore =
+      candidate.precipitation * 10000 +
+      candidate.probability * 5000 +
+      candidate.severityRank * 100 +
+      candidate.windGust;
+    const bestScore =
+      best.precipitation * 10000 +
+      best.probability * 5000 +
+      best.severityRank * 100 +
+      best.windGust;
+
+    if (candidateScore > bestScore) {
+      best = candidate;
+    }
+  });
+
+  return best;
 }
 
 function buildTableTooltipHtml(hour, entry) {
@@ -617,60 +772,44 @@ function renderDayTabs() {
 
 // Update cards statistics
 function updateKpiAnalytics() {
-  let totalSum = 0;
-  let totalCount = 0;
-  let maxChance = 0;
-  let maxChanceTime = "";
-  let highRiskHoursCount = 0;
-  let safeHoursCount = 0;
-
-  // Global calculations across all forecast data
-  activeForecastData.forEach(day => {
-    Object.entries(day.values).forEach(([hour, entry]) => {
-      const val = getEntryProbability(entry);
-      if (val !== null) {
-        totalSum += val;
-        totalCount++;
-
-        if (val > maxChance) {
-          maxChance = val;
-          maxChanceTime = `${formatDateTab(day.date)} (${hour})`;
-        }
-
-        if (val > 0.70) {
-          highRiskHoursCount++;
-        } else if (val <= 0.30) {
-          safeHoursCount++;
-        }
-      }
-    });
-  });
-
-  // Calculate current selected day's average for left panel display
-  let selectedDaySum = 0;
-  let selectedDayCount = 0;
-  const currentDayData = activeForecastData.find(d => d.date === selectedDate);
-  if (currentDayData) {
-    Object.values(currentDayData.values).forEach(entry => {
-      const val = getEntryProbability(entry);
-      if (val !== null) {
-        selectedDaySum += val;
-        selectedDayCount++;
-      }
-    });
-  }
-
-  const selectedAvg = selectedDayCount > 0 ? Math.round((selectedDaySum / selectedDayCount) * 100) : 0;
+  const selectedEntries = getSelectedDayEntries();
+  const selectedDaySum = selectedEntries.reduce((sum, item) => sum + item.probability, 0);
+  const selectedAvg = selectedEntries.length > 0 ? Math.round((selectedDaySum / selectedEntries.length) * 100) : 0;
   forecastAvgPercent.innerText = `${selectedAvg}%`;
   
-  // Set weather icon depending on average probability of rain
   updateWeatherIcon(selectedAvg);
 
-  // Update KPI displays
-  kpiMaxChance.innerText = `${Math.round(maxChance * 100)}%`;
-  kpiMaxTime.innerText = maxChanceTime || "-";
-  kpiHighRiskHours.innerText = `${highRiskHoursCount} ชม.`;
-  kpiSafeHours.innerText = `${safeHoursCount} ชม.`;
+  if (!selectedEntries.length) {
+    kpiPeakWindow.innerText = "-";
+    kpiPeakDetail.innerText = "ไม่พบข้อมูลรายชั่วโมง";
+    kpiLowWindow.innerText = "-";
+    kpiLowDetail.innerText = "ไม่พบข้อมูลรายชั่วโมง";
+    kpiIntensity.innerText = "-";
+    kpiIntensityDetail.innerText = "ไม่พบข้อมูลรายชั่วโมง";
+    return;
+  }
+
+  const peakWindow = findPeakRainWindow(selectedEntries);
+  const lowWindow = findLongestLowRainWindow(selectedEntries);
+  const strongestProfile = findStrongestRainProfile(selectedEntries);
+
+  if (peakWindow) {
+    kpiPeakWindow.innerText = formatHourRange(peakWindow.startHour, peakWindow.endHour);
+    kpiPeakDetail.innerText = `สูงสุด ${Math.round(peakWindow.probability * 100)}% | ${peakWindow.weather.label}`;
+  }
+
+  if (lowWindow) {
+    kpiLowWindow.innerText = formatHourRange(lowWindow.startHour, lowWindow.endHour);
+    kpiLowDetail.innerText = `รวม ${lowWindow.hourCount} ชม. | สูงสุดไม่เกิน ${Math.round(lowWindow.maxProbability * 100)}%`;
+  } else {
+    kpiLowWindow.innerText = "-";
+    kpiLowDetail.innerText = "ไม่พบช่วงฝนต่ำต่อเนื่อง";
+  }
+
+  if (strongestProfile) {
+    kpiIntensity.innerText = strongestProfile.weather.label;
+    kpiIntensityDetail.innerText = `${strongestProfile.hour} | ${formatMillimeters(strongestProfile.precipitation)} | ลม ${formatWindKmh(strongestProfile.windGust)}`;
+  }
 }
 
 // Update the weather icon visually based on selected day average rain probability
