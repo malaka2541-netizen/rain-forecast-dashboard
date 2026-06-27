@@ -15,6 +15,10 @@ DEFAULT_PORT = 8000
 ENV_PATH = Path(__file__).with_name(".env")
 
 
+def log_event(message: str) -> None:
+    print(message, flush=True)
+
+
 def load_env_file(env_path: Path) -> None:
     if not env_path.exists():
         return
@@ -110,6 +114,11 @@ def supabase_headers(prefer: str | None = None) -> dict[str, str]:
 
 
 def supabase_request(path: str, payload: Any, prefer: str | None = None, timeout: int = 10) -> Any:
+    payload_size = len(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
+    log_event(
+        f"Supabase request starting: path={path}, prefer={prefer or '-'}, "
+        f"payload_bytes={payload_size}"
+    )
     request = urllib.request.Request(
         build_supabase_url(path),
         data=json.dumps(payload).encode("utf-8"),
@@ -120,6 +129,10 @@ def supabase_request(path: str, payload: Any, prefer: str | None = None, timeout
 
     with urllib.request.urlopen(request, timeout=timeout) as response:
         raw = response.read().decode("utf-8")
+        log_event(
+            f"Supabase request completed: path={path}, status={response.status}, "
+            f"body_bytes={len(raw.encode('utf-8')) if raw else 0}"
+        )
         return json.loads(raw) if raw else None
 
 
@@ -169,16 +182,22 @@ def build_openmeteo_hour_rows(run_id: int, payload: dict[str, Any]) -> list[dict
 
 def log_openmeteo_snapshot(lat: str, lon: str, payload: dict[str, Any]) -> None:
     if not is_supabase_logging_enabled():
+        log_event("Supabase logging skipped: missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.")
         return
 
     try:
+        hourly_count = len((payload.get("hourly") or {}).get("time") or [])
+        log_event(
+            f"Supabase logging start: source=openmeteo, lat={lat}, lon={lon}, "
+            f"hourly_points={hourly_count}"
+        )
         run_rows = supabase_request(
             "/rest/v1/forecast_runs",
             build_openmeteo_run_record(lat, lon, payload),
             prefer="return=representation",
         )
         if not run_rows:
-            print("Supabase logging skipped: forecast_runs insert returned no row.")
+            log_event("Supabase logging skipped: forecast_runs insert returned no row.")
             return
 
         run_id = run_rows[0]["id"]
@@ -190,9 +209,12 @@ def log_openmeteo_snapshot(lat: str, lon: str, payload: dict[str, Any]) -> None:
                 prefer="return=minimal",
                 timeout=15,
             )
-        print(f"Supabase logging completed for Open-Meteo run {run_id}.")
+        log_event(
+            f"Supabase logging completed for Open-Meteo run {run_id} "
+            f"with {len(hour_rows)} hourly rows."
+        )
     except Exception as error:
-        print(f"Supabase logging failed: {error}")
+        log_event(f"Supabase logging failed: {type(error).__name__}: {error}")
 
 
 class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
@@ -224,21 +246,21 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
 
     def handle_openmeteo_forecast(self, lat, lon):
         openmeteo_url = build_openmeteo_url(lat, lon)
-        print(f"Proxying Open-Meteo request to: {openmeteo_url}")
+        log_event(f"Proxying Open-Meteo request to: {openmeteo_url}")
 
         try:
             response_body = self.fetch_json(openmeteo_url, timeout=20)
             payload = json.loads(response_body.decode("utf-8"))
             self.respond_json(payload)
             log_openmeteo_snapshot(lat, lon, payload)
-            print("Open-Meteo request completed successfully.")
+            log_event("Open-Meteo request completed successfully.")
         except Exception as error:
-            print(f"Error during Open-Meteo proxy request: {error}")
+            log_event(f"Error during Open-Meteo proxy request: {type(error).__name__}: {error}")
             self.respond_json({"error": str(error), "source": "openmeteo"}, status=500)
 
     def handle_geocode(self, lat, lon):
         nominatim_url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}&zoom=10&accept-language=th"
-        print(f"Proxying Reverse Geocode request to: {nominatim_url}")
+        log_event(f"Proxying Reverse Geocode request to: {nominatim_url}")
 
         try:
             req = urllib.request.Request(nominatim_url)
@@ -248,9 +270,9 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
                 res_data = response.read()
                 payload = json.loads(res_data.decode("utf-8"))
                 self.respond_json(payload)
-                print("Reverse Geocode request completed successfully.")
+                log_event("Reverse Geocode request completed successfully.")
         except Exception as error:
-            print(f"Error during Reverse Geocode request: {error}")
+            log_event(f"Error during Reverse Geocode request: {type(error).__name__}: {error}")
             self.respond_json({"error": str(error), "source": "nominatim"}, status=500)
 
     def handle_tmd_forecast(self, lat, lon, forecast_type, query_params):
