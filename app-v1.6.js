@@ -177,32 +177,67 @@ function hasDistrictInLocationName(locationName) {
   return String(locationName || "").trim().split(/\s+/).length >= 2;
 }
 
+function getAdministrativeAreaName(administrative, levels = []) {
+  if (!Array.isArray(administrative) || !levels.length) return "";
+
+  for (const level of levels) {
+    const matched = administrative.find(item => Number(item?.adminLevel) === Number(level) && item?.name);
+    if (matched?.name) {
+      return matched.name;
+    }
+  }
+
+  return "";
+}
+
+function parseReverseGeocodeLocation(data) {
+  const administrative = Array.isArray(data?.localityInfo?.administrative)
+    ? data.localityInfo.administrative
+    : [];
+
+  const province = stripAdministrativePrefix(
+    data?.principalSubdivision ||
+    data?.localityInfo?.principalSubdivision ||
+    getAdministrativeAreaName(administrative, [4]) ||
+    ""
+  );
+
+  const districtCandidate =
+    getAdministrativeAreaName(administrative, [6]) ||
+    (data?.city && data.city !== data?.principalSubdivision ? data.city : "") ||
+    "";
+
+  const district = stripAdministrativePrefix(districtCandidate);
+
+  return { province, district };
+}
+
+async function fetchClientReverseGeocode(lat, lon) {
+  const query = new URLSearchParams({
+    latitude: String(lat),
+    longitude: String(lon),
+    localityLanguage: "th"
+  });
+
+  const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?${query.toString()}`, {
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(`Client reverse geocoding returned status ${response.status}`);
+  }
+
+  return response.json();
+}
+
 async function resolveLocationNameFromCoordinates(lat, lon, fallbackName = "") {
   if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) {
     return fallbackName || DEFAULT_LOCATION_NAME;
   }
 
   try {
-    const response = await fetch(`/api/geocode?lat=${lat}&lon=${lon}`);
-    if (!response.ok) {
-      throw new Error(`Reverse geocoding returned status ${response.status}`);
-    }
-
-    const data = await response.json();
-    const address = data?.address || {};
-    const province = stripAdministrativePrefix(address.province || address.state || "");
-    const district = stripAdministrativePrefix(
-      address.city_district ||
-      address.suburb ||
-      address.quarter ||
-      address.county ||
-      address.city ||
-      address.district ||
-      address.municipality ||
-      address.town ||
-      address.borough ||
-      ""
-    );
+    const data = await fetchClientReverseGeocode(lat, lon);
+    const { province, district } = parseReverseGeocodeLocation(data);
 
     if (district && province && district !== province) {
       return `${district} ${province}`;
@@ -1071,24 +1106,29 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Reverse Geocode
         try {
-          const res = await fetch(`/api/geocode?lat=${lat}&lon=${lon}`);
-          const data = await res.json();
-          if (data && data.address) {
-            const p = data.address.province || data.address.state || "";
-            const d = data.address.city || data.address.county || data.address.district || data.address.town || "";
-            
-            // Auto-fill if found
-            if (p) {
-              // Try to find matching province in our list
-              const matchProv = thaiLocations.find(x => x.province.includes(p.replace("จังหวัด","").trim()) || p.includes(x.province));
-              if (matchProv) {
-                inputProvince.value = matchProv.province;
-                // trigger input event to populate district
-                inputProvince.dispatchEvent(new Event("input"));
-                
-                if (d) {
-                  const matchDist = matchProv.districts.find(x => x.includes(d.replace("อำเภอ","").replace("เขต","").trim()) || d.includes(x));
-                  if (matchDist) inputDistrict.value = matchDist;
+          const data = await fetchClientReverseGeocode(lat, lon);
+          const { province, district } = parseReverseGeocodeLocation(data);
+
+          if (province) {
+            const normalizedProvince = stripAdministrativePrefix(province);
+            const matchProv = thaiLocations.find(item => {
+              const candidate = stripAdministrativePrefix(item.province);
+              return candidate === normalizedProvince || candidate.includes(normalizedProvince) || normalizedProvince.includes(candidate);
+            });
+
+            if (matchProv) {
+              inputProvince.value = matchProv.province;
+              inputProvince.dispatchEvent(new Event("input"));
+
+              if (district) {
+                const normalizedDistrict = stripAdministrativePrefix(district);
+                const matchDist = matchProv.districts.find(item => {
+                  const candidate = stripAdministrativePrefix(item);
+                  return candidate === normalizedDistrict || candidate.includes(normalizedDistrict) || normalizedDistrict.includes(candidate);
+                });
+
+                if (matchDist) {
+                  inputDistrict.value = matchDist;
                 }
               }
             }
