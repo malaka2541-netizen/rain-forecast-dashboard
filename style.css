@@ -853,6 +853,32 @@ select:focus {
   vertical-align: middle;
 }
 
+.table-icon .weather-icon,
+.forecast-hover-weather .weather-icon {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.weather-icon-calm {
+  color: #64748b;
+}
+
+.weather-icon-drizzle {
+  color: #0ea5e9;
+}
+
+.weather-icon-moderate {
+  color: #0284c7;
+}
+
+.weather-icon-heavy {
+  color: #f97316;
+}
+
+.weather-icon-storm {
+  color: #7c3aed;
+}
+
 .forecast-hover-tooltip {
   position: fixed;
   z-index: 1200;
@@ -879,6 +905,12 @@ select:focus {
   font-size: 0.76rem;
   line-height: 1.45;
   color: var(--text-main);
+}
+
+.forecast-hover-weather {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
 }
 
 .forecast-hover-alert {

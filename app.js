@@ -58,63 +58,63 @@ function getWeatherDetails(weatherCode, precipitationMm = 0, windGustKmh = 0, pr
 
   if ([95, 96, 99].includes(code)) {
     details = {
-      icon: "⛈️",
+      iconClass: "fa-solid fa-cloud-bolt",
       label: code === 99 ? "พายุฝนฟ้าคะนองรุนแรง มีโอกาสลูกเห็บ" : "พายุฝนฟ้าคะนอง",
       severity: "storm",
       isStorm: true
     };
   } else if ([65, 80, 81, 82].includes(code)) {
     details = {
-      icon: "🌊",
+      iconClass: "fa-solid fa-cloud-showers-heavy",
       label: rainMm >= 10 ? "ฝนตกหนักมาก" : "ฝนตกหนัก",
       severity: "heavy",
       isStorm: gustKmh >= 50
     };
   } else if ([61, 63, 66, 67].includes(code)) {
     details = {
-      icon: "☔",
+      iconClass: "fa-solid fa-cloud-showers-water",
       label: "ฝนตกปานกลาง",
       severity: "moderate",
       isStorm: false
     };
   } else if ([51, 53, 55, 56, 57].includes(code)) {
     details = {
-      icon: "🌦️",
+      iconClass: "fa-solid fa-cloud-rain",
       label: "ฝนปรอยๆ",
       severity: "drizzle",
       isStorm: false
     };
   } else if ([45, 48].includes(code)) {
     details = {
-      icon: "🌫️",
+      iconClass: "fa-solid fa-smog",
       label: "หมอก",
       severity: "calm",
       isStorm: false
     };
   } else if ([1, 2].includes(code)) {
     details = {
-      icon: "⛅",
+      iconClass: "fa-solid fa-cloud-sun",
       label: "เมฆบางส่วน",
       severity: "calm",
       isStorm: false
     };
   } else if (code === 3) {
     details = {
-      icon: "☁️",
+      iconClass: "fa-solid fa-cloud",
       label: "เมฆมาก",
       severity: "calm",
       isStorm: false
     };
   } else if (code === 0) {
     details = {
-      icon: "☀️",
+      iconClass: "fa-solid fa-sun",
       label: "ท้องฟ้าโปร่ง",
       severity: "calm",
       isStorm: false
     };
   } else {
     details = {
-      icon: rainMm > 0 ? "🌧️" : "☁️",
+      iconClass: rainMm > 0 ? "fa-solid fa-cloud-rain" : "fa-solid fa-cloud",
       label: rainMm > 0 ? "มีฝน" : "สภาพอากาศทั่วไป",
       severity: rainMm > 0 ? "moderate" : "calm",
       isStorm: false
@@ -127,7 +127,7 @@ function getWeatherDetails(weatherCode, precipitationMm = 0, windGustKmh = 0, pr
 
   if (rainProbability < 0.2) {
     return {
-      icon: rainMm > 0 || details.severity !== "calm" ? "🌦️" : "⛅",
+      iconClass: rainMm > 0 || details.severity !== "calm" ? "fa-solid fa-cloud-rain" : "fa-solid fa-cloud-sun",
       label: details.severity === "storm" ? "โอกาสฝนฟ้าคะนองต่ำ" : "โอกาสฝนต่ำ",
       severity: rainMm > 0 ? "drizzle" : "calm",
       isStorm: false
@@ -136,7 +136,7 @@ function getWeatherDetails(weatherCode, precipitationMm = 0, windGustKmh = 0, pr
 
   if (rainProbability < 0.4 && (details.severity === "storm" || details.severity === "heavy")) {
     return {
-      icon: "🌦️",
+      iconClass: "fa-solid fa-cloud-rain",
       label: details.severity === "storm" ? "มีโอกาสฝนฟ้าคะนองบางช่วง" : "มีโอกาสฝนเป็นช่วง",
       severity: "moderate",
       isStorm: false
@@ -144,6 +144,10 @@ function getWeatherDetails(weatherCode, precipitationMm = 0, windGustKmh = 0, pr
   }
 
   return details;
+}
+
+function buildWeatherIconHtml(weather) {
+  return `<i class="${weather.iconClass} weather-icon weather-icon-${weather.severity}" aria-hidden="true"></i>`;
 }
 
 function formatMillimeters(value) {
@@ -314,13 +318,14 @@ function findStrongestRainProfile(entries) {
 
 function buildTableTooltipHtml(hour, entry) {
   const weather = getWeatherDetails(entry.weatherCode, entry.precipitation, entry.windGust, entry.probability);
+  const weatherIconHtml = buildWeatherIconHtml(weather);
   const stormAlert = weather.isStorm || (entry.probability >= 0.5 && entry.windGust >= 50)
     ? `<div class="forecast-hover-line forecast-hover-alert">แจ้งเตือน: เสี่ยงพายุหรือฝนรุนแรง</div>`
     : "";
   return `
     <div class="forecast-hover-title">${hour} น.</div>
     <div class="forecast-hover-line">โอกาสเกิดฝน: ${Math.round(entry.probability * 100)}%</div>
-    <div class="forecast-hover-line">สภาพอากาศ: ${weather.label} ${weather.icon}</div>
+    <div class="forecast-hover-line forecast-hover-weather">สภาพอากาศ: ${weatherIconHtml}<span>${weather.label}</span></div>
     <div class="forecast-hover-line">ปริมาณฝนคาดการณ์: ${formatMillimeters(entry.precipitation)}</div>
     <div class="forecast-hover-line">ลมกระโชก: ${formatWindKmh(entry.windGust)}</div>
     ${stormAlert}
@@ -867,7 +872,7 @@ function renderTable() {
 
         const iconWrapper = document.createElement("span");
         iconWrapper.className = "table-icon";
-        iconWrapper.textContent = weather.icon;
+        iconWrapper.innerHTML = buildWeatherIconHtml(weather);
 
         cell.appendChild(valueWrapper);
 
@@ -1059,7 +1064,7 @@ function renderChart() {
 
               return [
                 `โอกาสฝน: ${context.parsed.y}%`,
-                `ลักษณะอากาศ: ${weather.label} ${weather.icon}`,
+                `ลักษณะอากาศ: ${weather.label}`,
                 `ปริมาณฝน: ${formatMillimeters(entry.precipitation)}`,
                 `ลมกระโชก: ${formatWindKmh(entry.windGust)}`
               ];
