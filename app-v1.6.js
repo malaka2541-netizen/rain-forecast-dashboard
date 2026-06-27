@@ -48,6 +48,19 @@ const loadingOverlay = document.getElementById("loading-overlay");
 const loadingText = document.getElementById("loading-text");
 const openMeteoSourceStatus = document.getElementById("openmeteo-source-status");
 const tmdSourceStatus = document.getElementById("tmd-source-status");
+const accuracyModal = document.getElementById("accuracy-modal");
+const accuracyLoading = document.getElementById("accuracy-loading");
+const accuracyContent = document.getElementById("accuracy-content");
+const accuracyError = document.getElementById("accuracy-error");
+const accuracyTotalChecks = document.getElementById("accuracy-total-checks");
+const accuracyRainHitRate = document.getElementById("accuracy-rain-hit-rate");
+const accuracyAvgError = document.getElementById("accuracy-avg-error");
+const accuracyConfidence = document.getElementById("accuracy-confidence");
+const accuracySummaryText = document.getElementById("accuracy-summary-text");
+const accuracyPeriodText = document.getElementById("accuracy-period-text");
+const accuracyProbabilityBreakdown = document.getElementById("accuracy-probability-breakdown");
+const accuracyIntensityBreakdown = document.getElementById("accuracy-intensity-breakdown");
+const accuracyConfidenceNotes = document.getElementById("accuracy-confidence-notes");
 const tableHoverTooltip = document.createElement("div");
 tableHoverTooltip.className = "forecast-hover-tooltip hidden";
 document.body.appendChild(tableHoverTooltip);
@@ -1023,6 +1036,153 @@ async function fetchTmdForecastSummary(lat, lon) {
   };
 }
 
+function formatBacktestPercent(value) {
+  return Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)}%` : "-";
+}
+
+function formatBacktestMillimeters(value) {
+  return Number.isFinite(Number(value)) ? `${Number(value).toFixed(3)} มม.` : "-";
+}
+
+function formatBacktestDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat("th-TH", {
+    timeZone: "Asia/Bangkok",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).format(date);
+}
+
+function getBacktestConfidenceLabel(totalChecks, confidenceFlags = []) {
+  if (totalChecks >= 200 && !confidenceFlags.length) return "เริ่มน่าเชื่อถือ";
+  if (totalChecks >= 100) return "พอใช้ได้";
+  if (totalChecks >= 24) return "ยังต้องสะสมข้อมูล";
+  return "ยังเร็วเกินไป";
+}
+
+function buildBacktestSummaryNarrative(summary, confidenceFlags = []) {
+  const totalChecks = Number(summary?.total_checks || 0);
+  const rainRate = Number(summary?.actual_rain_rate_pct || 0);
+  const avgError = Number(summary?.avg_abs_error_mm || 0);
+
+  if (!totalChecks) {
+    return "ยังไม่มีข้อมูลตรวจเทียบจริง ระบบเก็บโครงสร้างพร้อมแล้ว แต่ยังต้องรอข้อมูลย้อนหลังเพิ่มก่อนจึงจะสรุปความแม่นได้";
+  }
+
+  const confidenceLabel = getBacktestConfidenceLabel(totalChecks, confidenceFlags);
+  return `ตอนนี้ระบบตรวจเทียบแล้ว ${totalChecks} จุดตรวจ พบฝนตกจริง ${rainRate.toFixed(1)}% ของจุดที่เก็บ และมีค่าคลาดเคลื่อนปริมาณฝนเฉลี่ย ${avgError.toFixed(3)} มม. ระดับการอ่านผลตอนนี้คือ "${confidenceLabel}"`;
+}
+
+function getProbabilityBucketThai(key) {
+  const map = {
+    low: "โอกาสฝนต่ำ",
+    medium: "โอกาสฝนปานกลาง",
+    high: "โอกาสฝนสูง",
+    unknown: "ไม่ระบุช่วง"
+  };
+  return map[key] || key;
+}
+
+function getIntensityThai(key) {
+  const map = {
+    none: "ไม่พบฝน",
+    drizzle: "ฝนปรอย/เบามาก",
+    light: "ฝนเบา",
+    moderate: "ฝนปานกลาง",
+    heavy: "ฝนหนัก",
+    "very-heavy": "ฝนหนักมาก",
+    severe: "ฝนรุนแรงมาก",
+    unknown: "ไม่ระบุระดับ"
+  };
+  return map[key] || key;
+}
+
+function buildBreakdownHtml(breakdown = {}, labelFormatter) {
+  const entries = Object.entries(breakdown);
+  if (!entries.length) {
+    return '<div class="accuracy-breakdown-item"><div class="accuracy-breakdown-meta">ยังไม่มีข้อมูลเพียงพอ</div></div>';
+  }
+
+  return entries.map(([key, item]) => `
+    <div class="accuracy-breakdown-item">
+      <div class="accuracy-breakdown-head">
+        <strong>${labelFormatter(key)}</strong>
+        <span>${item.total_checks || 0} จุดตรวจ</span>
+      </div>
+      <div class="accuracy-breakdown-meta">
+        ฝนตกจริง ${formatBacktestPercent(item.actual_rain_rate_pct)} |
+        ปริมาณฝนจริงเฉลี่ย ${formatBacktestMillimeters(item.avg_observed_rain_mm)} |
+        คลาดเคลื่อนเฉลี่ย ${formatBacktestMillimeters(item.avg_abs_error_mm)}
+      </div>
+    </div>
+  `).join("");
+}
+
+async function openAccuracyModal() {
+  if (!accuracyModal) return;
+
+  accuracyModal.classList.remove("hidden");
+  accuracyLoading?.classList.remove("hidden");
+  accuracyContent?.classList.add("hidden");
+  accuracyError?.classList.add("hidden");
+  accuracyConfidenceNotes?.classList.add("hidden");
+
+  try {
+    const response = await fetch(`/api/backtest/summary?_t=${Date.now()}`);
+    const payload = await response.json();
+
+    if (!response.ok || !payload?.success) {
+      throw new Error(payload?.error || "ไม่สามารถโหลดสถิติความแม่นได้");
+    }
+
+    const summary = payload.summary || {};
+    const confidenceFlags = Array.isArray(payload.confidence_flags) ? payload.confidence_flags : [];
+
+    accuracyTotalChecks.textContent = String(summary.total_checks ?? 0);
+    accuracyRainHitRate.textContent = formatBacktestPercent(summary.actual_rain_rate_pct);
+    accuracyAvgError.textContent = formatBacktestMillimeters(summary.avg_abs_error_mm);
+    accuracyConfidence.textContent = getBacktestConfidenceLabel(Number(summary.total_checks || 0), confidenceFlags);
+    accuracySummaryText.textContent = buildBacktestSummaryNarrative(summary, confidenceFlags);
+    accuracyPeriodText.textContent = `ช่วงข้อมูลตรวจจริง: ${formatBacktestDateTime(summary.observed_start)} ถึง ${formatBacktestDateTime(summary.observed_end)}`;
+    accuracyProbabilityBreakdown.innerHTML = buildBreakdownHtml(payload.probability_breakdown, getProbabilityBucketThai);
+    accuracyIntensityBreakdown.innerHTML = buildBreakdownHtml(payload.rain_intensity_breakdown, getIntensityThai);
+
+    const notes = [];
+    if (confidenceFlags.includes("sample-small")) {
+      notes.push("จำนวนจุดตรวจยังน้อยกว่า 24 จุด จึงยังใช้บอกแนวโน้มเบื้องต้นเท่านั้น");
+    }
+    if (confidenceFlags.includes("early-stage")) {
+      notes.push("ฐานข้อมูลยังอยู่ช่วงเริ่มต้น ควรรอสะสมอย่างน้อยหลายสิบถึงหลักร้อยจุดตรวจ");
+    }
+
+    if (accuracyConfidenceNotes) {
+      if (notes.length) {
+        accuracyConfidenceNotes.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i><div>${notes.join("<br>")}</div>`;
+        accuracyConfidenceNotes.classList.remove("hidden");
+      } else {
+        accuracyConfidenceNotes.classList.add("hidden");
+      }
+    }
+
+    accuracyLoading?.classList.add("hidden");
+    accuracyContent?.classList.remove("hidden");
+  } catch (error) {
+    console.error("Unable to load backtest summary:", error);
+    if (accuracyLoading) accuracyLoading.classList.add("hidden");
+    if (accuracyError) {
+      accuracyError.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i><div>${error.message || "โหลดข้อมูลไม่สำเร็จ"}</div>`;
+      accuracyError.classList.remove("hidden");
+    }
+  }
+}
+
 // Initialize application
 document.addEventListener("DOMContentLoaded", () => {
   // Fetch real data on load automatically
@@ -1047,7 +1207,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnCancelLoc = document.getElementById("btn-cancel-loc");
   const btnSaveLoc = document.getElementById("btn-save-loc");
   const guideModal = document.getElementById("guide-modal");
+  const btnOpenAccuracy = document.getElementById("btn-open-accuracy");
   const btnOpenGuide = document.getElementById("btn-open-guide");
+  const btnCloseAccuracy = document.getElementById("btn-close-accuracy");
+  const btnCloseAccuracyHeader = document.getElementById("btn-close-accuracy-header");
   const btnCloseGuide = document.getElementById("btn-close-guide");
   const btnCloseGuideHeader = document.getElementById("btn-close-guide-header");
   
@@ -1248,6 +1411,20 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  if (btnOpenAccuracy && accuracyModal) {
+    btnOpenAccuracy.addEventListener("click", () => {
+      openAccuracyModal();
+    });
+  }
+
+  [btnCloseAccuracy, btnCloseAccuracyHeader].forEach(button => {
+    if (button && accuracyModal) {
+      button.addEventListener("click", () => {
+        accuracyModal.classList.add("hidden");
+      });
+    }
+  });
+
   if (btnOpenGuide && guideModal) {
     btnOpenGuide.addEventListener("click", () => {
       guideModal.classList.remove("hidden");
@@ -1262,6 +1439,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  if (accuracyModal) {
+    accuracyModal.addEventListener("click", (event) => {
+      if (event.target === accuracyModal) {
+        accuracyModal.classList.add("hidden");
+      }
+    });
+  }
+
   if (guideModal) {
     guideModal.addEventListener("click", (event) => {
       if (event.target === guideModal) {
@@ -1272,6 +1457,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
+      if (accuracyModal && !accuracyModal.classList.contains("hidden")) {
+        accuracyModal.classList.add("hidden");
+      }
       if (guideModal && !guideModal.classList.contains("hidden")) {
         guideModal.classList.add("hidden");
       }

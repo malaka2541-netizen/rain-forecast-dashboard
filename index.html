@@ -37,6 +37,10 @@
       </div>
 
       <div class="header-actions">
+        <button id="btn-open-accuracy" class="btn btn-secondary" type="button">
+          <i class="fa-solid fa-chart-simple"></i>
+          สถิติความแม่น
+        </button>
         <button id="btn-open-guide" class="btn btn-secondary" type="button">
           <i class="fa-solid fa-circle-question"></i>
           วิธีอ่านข้อมูล
@@ -267,6 +271,62 @@
       </div>
       <div class="modal-footer">
         <button id="btn-close-guide" class="btn btn-primary" type="button">เข้าใจแล้ว</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="accuracy-modal" class="modal-overlay hidden">
+    <div class="modal-card animate-modal accuracy-modal-card">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-chart-simple"></i> สถิติความแม่นย้อนหลัง</h2>
+        <button id="btn-close-accuracy-header" class="btn-icon" type="button" aria-label="ปิดหน้าต่างสถิติความแม่น">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div id="accuracy-loading" class="accuracy-loading">กำลังโหลดสถิติ...</div>
+        <div id="accuracy-content" class="accuracy-content hidden">
+          <div class="accuracy-grid">
+            <div class="accuracy-stat-card">
+              <span class="accuracy-stat-label">จำนวนจุดตรวจย้อนหลัง</span>
+              <strong id="accuracy-total-checks">-</strong>
+            </div>
+            <div class="accuracy-stat-card">
+              <span class="accuracy-stat-label">อัตราฝนตกจริง</span>
+              <strong id="accuracy-rain-hit-rate">-</strong>
+            </div>
+            <div class="accuracy-stat-card">
+              <span class="accuracy-stat-label">คลาดเคลื่อนฝนเฉลี่ย</span>
+              <strong id="accuracy-avg-error">-</strong>
+            </div>
+            <div class="accuracy-stat-card">
+              <span class="accuracy-stat-label">ระดับความน่าเชื่อถือ</span>
+              <strong id="accuracy-confidence">-</strong>
+            </div>
+          </div>
+
+          <div class="accuracy-summary-block">
+            <h3>สรุปแบบอ่านเร็ว</h3>
+            <p id="accuracy-summary-text">-</p>
+            <p id="accuracy-period-text" class="accuracy-subtext">-</p>
+          </div>
+
+          <div class="accuracy-section">
+            <h3>แยกตามระดับโอกาสฝน</h3>
+            <div id="accuracy-probability-breakdown" class="accuracy-breakdown-list"></div>
+          </div>
+
+          <div class="accuracy-section">
+            <h3>แยกตามความแรงฝนที่ตรวจจริง</h3>
+            <div id="accuracy-intensity-breakdown" class="accuracy-breakdown-list"></div>
+          </div>
+
+          <div id="accuracy-confidence-notes" class="alert alert-warning hidden"></div>
+        </div>
+        <div id="accuracy-error" class="alert alert-warning hidden"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-close-accuracy" class="btn btn-primary" type="button">ปิด</button>
       </div>
     </div>
   </div>

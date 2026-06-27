@@ -1565,6 +1565,117 @@ select:focus {
   justify-content: flex-end;
 }
 
+.accuracy-modal-card {
+  max-width: 920px;
+}
+
+.accuracy-loading {
+  padding: 1rem 0;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
+
+.accuracy-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.accuracy-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.accuracy-stat-card {
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  background: var(--input-bg);
+  padding: 1rem 1.1rem;
+}
+
+.accuracy-stat-label {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 0.45rem;
+}
+
+.accuracy-stat-card strong {
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.accuracy-summary-block,
+.accuracy-section {
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  background: var(--input-bg);
+  padding: 1rem 1.1rem;
+}
+
+.accuracy-summary-block h3,
+.accuracy-section h3 {
+  font-size: 1rem;
+  margin-bottom: 0.55rem;
+}
+
+.accuracy-summary-block p {
+  line-height: 1.55;
+}
+
+.accuracy-subtext {
+  margin-top: 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.accuracy-breakdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.accuracy-breakdown-item {
+  border-radius: 12px;
+  border: 1px solid var(--card-border);
+  background: rgba(255, 255, 255, 0.45);
+  padding: 0.85rem 0.95rem;
+}
+
+.dark-theme .accuracy-breakdown-item {
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.accuracy-breakdown-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+  align-items: baseline;
+}
+
+.accuracy-breakdown-head strong {
+  font-size: 0.95rem;
+}
+
+.accuracy-breakdown-head span {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.accuracy-breakdown-meta {
+  font-size: 0.85rem;
+  color: var(--text-main);
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .accuracy-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Loading Spinner styling */
 .loading-spinner-wrapper {
   text-align: center;
