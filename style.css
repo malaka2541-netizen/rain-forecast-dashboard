@@ -150,6 +150,29 @@ body {
   letter-spacing: -0.5px;
 }
 
+.kpi-info span {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  display: block;
+}
+
+.kpi-peak-extra {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border-light);
+}
+
+.extra-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text-main);
+}
+
 .logo-text span {
   font-size: 0.75rem;
   color: var(--text-muted);

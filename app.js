@@ -29,6 +29,9 @@ const forecastCurrentLabel = document.getElementById("forecast-current-label");
 const kpiSelectedDate = document.getElementById("kpi-selected-date");
 const kpiPeakWindow = document.getElementById("kpi-peak-window");
 const kpiPeakDetail = document.getElementById("kpi-peak-detail");
+const kpiPeakExtra = document.getElementById("kpi-peak-extra");
+const kpiPeakTotalRain = document.getElementById("kpi-peak-total-rain");
+const kpiPeakMaxWind = document.getElementById("kpi-peak-max-wind");
 const kpiAlertHeadline = document.getElementById("kpi-alert-headline");
 const kpiAlertDetail = document.getElementById("kpi-alert-detail");
 const kpiIntensity = document.getElementById("kpi-intensity");
@@ -336,11 +339,22 @@ function findPeakRainWindow(entries) {
       peakEntry.probability
     );
 
+  let totalRain = 0;
+  let maxWind = 0;
+  for (let i = startIndex; i <= endIndex; i++) {
+    totalRain += (entries[i].entry.precipitation ?? 0);
+    if ((entries[i].entry.windGust ?? 0) > maxWind) {
+      maxWind = entries[i].entry.windGust;
+    }
+  }
+
   return {
     startHour: entries[startIndex].hour,
     endHour: entries[endIndex].hour,
     probability: peakEntry.probability,
-    weather
+    weather,
+    totalRain,
+    maxWind
   };
 }
 
@@ -1202,6 +1216,7 @@ function updateKpiAnalytics() {
   if (!selectedEntries.length) {
     kpiPeakWindow.innerText = "-";
     kpiPeakDetail.innerText = "ไม่พบข้อมูลรายชั่วโมง";
+    if (kpiPeakExtra) kpiPeakExtra.classList.add("hidden");
     kpiAlertHeadline.innerText = "ไม่มีข้อมูลเตือน";
     kpiAlertDetail.innerText = "ไม่พบข้อมูลรายชั่วโมง";
     kpiIntensity.innerText = "จุดฝนแรงสุด";
@@ -1218,6 +1233,16 @@ function updateKpiAnalytics() {
   if (peakWindow) {
     kpiPeakWindow.innerText = formatHourRange(peakWindow.startHour, peakWindow.endHour);
     kpiPeakDetail.innerText = `สูงสุด ${Math.round(peakWindow.probability * 100)}% | ${peakWindow.weather.label}`;
+    
+    if (kpiPeakExtra && peakWindow.totalRain !== undefined) {
+      kpiPeakTotalRain.innerText = formatMillimeters(peakWindow.totalRain);
+      kpiPeakMaxWind.innerText = formatWindKmh(peakWindow.maxWind);
+      kpiPeakExtra.classList.remove("hidden");
+    }
+  } else {
+    kpiPeakWindow.innerText = "-";
+    kpiPeakDetail.innerText = "ไม่มีฝน";
+    if (kpiPeakExtra) kpiPeakExtra.classList.add("hidden");
   }
 
   kpiAlertHeadline.innerText = alertCard.label;
