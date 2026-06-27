@@ -1531,6 +1531,25 @@ function renderChart() {
   });
 }
 
+function updateWindyRadar(lat, lon) {
+  const iframe = document.getElementById("windy-radar");
+  if (!iframe) return;
+  iframe.src = `https://embed.windy.com/embed.html`
+    + `?type=map&location=coordinates`
+    + `&lat=${lat}&lon=${lon}`
+    + `&detailLat=${lat}&detailLon=${lon}`
+    + `&zoom=8`
+    + `&level=surface`
+    + `&overlay=radar`
+    + `&product=radar`
+    + `&menu=&message=true`
+    + `&marker=true`
+    + `&calendar=now`
+    + `&pressure=&type=map`
+    + `&location=coordinates&metricWind=km%2Fh`
+    + `&metricTemp=%C2%B0C`;
+}
+
 async function fetchDashboardData() {
   showLoading("กำลังเรียกข้อมูลพยากรณ์ล่าสุด...");
 
@@ -1561,6 +1580,10 @@ async function fetchDashboardData() {
     sourceComparisonState.openMeteoText = statusText;
     displayLocation.innerText = currentLocName;
     console.log("Weather data loaded from Open-Meteo successfully.");
+    
+    // Sync radar map with current coordinates
+    updateWindyRadar(currentLat, currentLon);
+    
     loadDataAndRefresh();
 
     if (tmdResult.status === "fulfilled") {
