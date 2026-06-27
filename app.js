@@ -1538,7 +1538,7 @@ function updateWindyRadar(lat, lon) {
     + `?type=map&location=coordinates`
     + `&lat=${lat}&lon=${lon}`
     + `&detailLat=${lat}&detailLon=${lon}`
-    + `&zoom=8`
+    + `&zoom=10`
     + `&level=surface`
     + `&overlay=radar`
     + `&product=radar`
