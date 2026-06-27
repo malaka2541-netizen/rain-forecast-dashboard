@@ -1322,16 +1322,19 @@ select:focus {
   line-height: 1;
 }
 
+.weather-icon-clear {
+  color: #f59e0b;
+}
+
+.weather-icon-cloudy,
 .weather-icon-calm {
   color: #64748b;
 }
 
-.weather-icon-drizzle {
-  color: #0ea5e9;
-}
-
+.weather-icon-rain,
+.weather-icon-drizzle,
 .weather-icon-moderate {
-  color: #0284c7;
+  color: #0ea5e9;
 }
 
 .weather-icon-heavy {

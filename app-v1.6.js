@@ -63,96 +63,137 @@ function getWeatherDetails(weatherCode, precipitationMm = 0, windGustKmh = 0, pr
   const rainMm = Number.isFinite(Number(precipitationMm)) ? Number(precipitationMm) : 0;
   const gustKmh = Number.isFinite(Number(windGustKmh)) ? Number(windGustKmh) : 0;
   const rainProbability = typeof probability === "number" ? Math.max(0, Math.min(1, probability)) : null;
-  let details;
+  const lowProbability = rainProbability !== null && rainProbability < 0.4;
 
   if ([95, 96, 99].includes(code)) {
-    details = {
+    return {
       iconClass: "fa-solid fa-cloud-bolt",
-      label: code === 99 ? "พายุฝนฟ้าคะนองรุนแรง มีโอกาสลูกเห็บ" : "พายุฝนฟ้าคะนอง",
-      severity: "storm",
-      isStorm: true
+      label: lowProbability ? "มีสัญญาณฟ้าคะนองบางช่วง" : (code === 99 ? "พายุฝนฟ้าคะนอง มีโอกาสลูกเห็บ" : "พายุฝนฟ้าคะนอง"),
+      severity: lowProbability ? "rain" : "storm",
+      isStorm: !lowProbability
     };
-  } else if ([65, 80, 81, 82].includes(code)) {
-    details = {
+  }
+
+  if ([65, 80, 81, 82].includes(code)) {
+    return {
       iconClass: "fa-solid fa-cloud-showers-heavy",
-      label: rainMm >= 10 ? "ฝนตกหนักมาก" : "ฝนตกหนัก",
-      severity: "heavy",
-      isStorm: gustKmh >= 50
+      label: lowProbability ? "มีสัญญาณฝนเป็นช่วง" : "ฝนเป็นช่วง",
+      severity: "rain",
+      isStorm: gustKmh >= 50 && rainProbability >= 0.5
     };
-  } else if ([61, 63, 66, 67].includes(code)) {
-    details = {
+  }
+
+  if ([61, 63, 66, 67].includes(code)) {
+    return {
       iconClass: "fa-solid fa-cloud-showers-water",
-      label: "ฝนตกปานกลาง",
-      severity: "moderate",
+      label: lowProbability ? "มีสัญญาณฝนบางช่วง" : "ฝนตก",
+      severity: "rain",
       isStorm: false
     };
-  } else if ([51, 53, 55, 56, 57].includes(code)) {
-    details = {
+  }
+
+  if ([51, 53, 55, 56, 57].includes(code)) {
+    return {
       iconClass: "fa-solid fa-cloud-rain",
       label: "ฝนปรอยๆ",
-      severity: "drizzle",
+      severity: "rain",
       isStorm: false
     };
-  } else if ([45, 48].includes(code)) {
-    details = {
+  }
+
+  if ([45, 48].includes(code)) {
+    return {
       iconClass: "fa-solid fa-smog",
       label: "หมอก",
-      severity: "calm",
+      severity: "cloudy",
       isStorm: false
     };
-  } else if ([1, 2].includes(code)) {
-    details = {
+  }
+
+  if ([1, 2].includes(code)) {
+    return {
       iconClass: "fa-solid fa-cloud-sun",
       label: "เมฆบางส่วน",
-      severity: "calm",
+      severity: "cloudy",
       isStorm: false
     };
-  } else if (code === 3) {
-    details = {
+  }
+
+  if (code === 3) {
+    return {
       iconClass: "fa-solid fa-cloud",
       label: "เมฆมาก",
-      severity: "calm",
+      severity: "cloudy",
       isStorm: false
     };
-  } else if (code === 0) {
-    details = {
+  }
+
+  if (code === 0) {
+    return {
       iconClass: "fa-solid fa-sun",
       label: "ท้องฟ้าโปร่ง",
-      severity: "calm",
-      isStorm: false
-    };
-  } else {
-    details = {
-      iconClass: rainMm > 0 ? "fa-solid fa-cloud-rain" : "fa-solid fa-cloud",
-      label: rainMm > 0 ? "มีฝน" : "สภาพอากาศทั่วไป",
-      severity: rainMm > 0 ? "moderate" : "calm",
+      severity: "clear",
       isStorm: false
     };
   }
 
-  if (rainProbability === null || details.severity === "calm") {
-    return details;
-  }
+  return {
+    iconClass: rainMm > 0 ? "fa-solid fa-cloud-rain" : "fa-solid fa-cloud",
+    label: rainMm > 0 ? "มีฝน" : "สภาพอากาศทั่วไป",
+    severity: rainMm > 0 ? "rain" : "cloudy",
+    isStorm: false
+  };
+}
 
-  if (rainProbability < 0.2) {
+function getRainIntensity(precipitationMm = 0) {
+  const rainMm = Number.isFinite(Number(precipitationMm)) ? Number(precipitationMm) : 0;
+
+  if (rainMm <= 0) {
+    return { label: "ไม่มีฝนคาดการณ์", severity: "none", rank: 0 };
+  }
+  if (rainMm < 1) {
+    return { label: "ฝนปรอย/แทบไม่มีผล", severity: "drizzle", rank: 1 };
+  }
+  if (rainMm < 2.5) {
+    return { label: "ฝนเบา", severity: "light", rank: 2 };
+  }
+  if (rainMm < 10) {
+    return { label: "ฝนปานกลาง", severity: "moderate", rank: 3 };
+  }
+  if (rainMm < 25) {
+    return { label: "ฝนหนัก", severity: "heavy", rank: 4 };
+  }
+  if (rainMm < 50) {
+    return { label: "ฝนหนักมาก", severity: "very-heavy", rank: 5 };
+  }
+  return { label: "ฝนรุนแรงมาก", severity: "severe", rank: 6 };
+}
+
+function getStormRisk(weatherCode, windGustKmh = 0, probability = null) {
+  const code = Number.isFinite(Number(weatherCode)) ? Number(weatherCode) : null;
+  const gustKmh = Number.isFinite(Number(windGustKmh)) ? Number(windGustKmh) : 0;
+  const rainProbability = typeof probability === "number" ? Math.max(0, Math.min(1, probability)) : null;
+  const hasStormCode = [95, 96, 99].includes(code);
+  const hasStrongGust = gustKmh >= 50 && (rainProbability === null || rainProbability >= 0.5);
+
+  if (hasStormCode && (rainProbability === null || rainProbability >= 0.4)) {
     return {
-      iconClass: rainMm > 0 || details.severity !== "calm" ? "fa-solid fa-cloud-rain" : "fa-solid fa-cloud-sun",
-      label: details.severity === "storm" ? "โอกาสฝนฟ้าคะนองต่ำ" : "โอกาสฝนต่ำ",
-      severity: rainMm > 0 ? "drizzle" : "calm",
-      isStorm: false
+      active: true,
+      label: code === 99 ? "มีสัญญาณพายุฝนฟ้าคะนอง/ลูกเห็บ" : "มีสัญญาณพายุฝนฟ้าคะนอง"
     };
   }
 
-  if (rainProbability < 0.4 && (details.severity === "storm" || details.severity === "heavy")) {
+  if (hasStrongGust) {
     return {
-      iconClass: "fa-solid fa-cloud-rain",
-      label: details.severity === "storm" ? "มีโอกาสฝนฟ้าคะนองบางช่วง" : "มีโอกาสฝนเป็นช่วง",
-      severity: "moderate",
-      isStorm: false
+      active: true,
+      label: "มีสัญญาณลมกระโชกแรงร่วมกับฝน"
     };
   }
 
-  return details;
+  return {
+    active: false,
+    label: "ไม่พบสัญญาณพายุเด่นชัด"
+  };
 }
 
 function buildWeatherIconHtml(weather) {
@@ -327,21 +368,6 @@ function formatHourRange(startHour, endHour) {
   return startHour === endHour ? startHour : `${startHour}-${endHour}`;
 }
 
-function getWeatherSeverityRank(severity) {
-  switch (severity) {
-    case "storm":
-      return 4;
-    case "heavy":
-      return 3;
-    case "moderate":
-      return 2;
-    case "drizzle":
-      return 1;
-    default:
-      return 0;
-  }
-}
-
 function findPeakRainWindow(entries) {
   if (!entries.length) return null;
 
@@ -367,12 +393,14 @@ function findPeakRainWindow(entries) {
   }
 
   const peakEntry = entries[peakIndex];
-    const weather = getWeatherDetails(
-      peakEntry.entry.weatherCode,
-      peakEntry.entry.precipitation,
-      peakEntry.entry.windGust,
-      peakEntry.probability
-    );
+  const weather = getWeatherDetails(
+    peakEntry.entry.weatherCode,
+    peakEntry.entry.precipitation,
+    peakEntry.entry.windGust,
+    peakEntry.probability
+  );
+  const rainIntensity = getRainIntensity(peakEntry.entry.precipitation);
+  const stormRisk = getStormRisk(peakEntry.entry.weatherCode, peakEntry.entry.windGust, peakEntry.probability);
 
   let totalRain = 0;
   let maxWind = 0;
@@ -388,6 +416,8 @@ function findPeakRainWindow(entries) {
     endHour: entries[endIndex].hour,
     probability: peakEntry.probability,
     weather,
+    rainIntensity,
+    stormRisk,
     totalRain,
     maxWind
   };
@@ -440,13 +470,16 @@ function findStrongestRainProfile(entries) {
 
   entries.forEach(item => {
     const weather = getWeatherDetails(item.entry.weatherCode, item.entry.precipitation, item.entry.windGust, item.probability);
+    const rainIntensity = getRainIntensity(item.entry.precipitation);
+    const stormRisk = getStormRisk(item.entry.weatherCode, item.entry.windGust, item.probability);
     const candidate = {
       hour: item.hour,
       probability: item.probability ?? 0,
       precipitation: Number(item.entry.precipitation ?? 0),
       windGust: Number(item.entry.windGust ?? 0),
       weather,
-      severityRank: getWeatherSeverityRank(weather.severity)
+      rainIntensity,
+      stormRisk
     };
 
     if (!best) {
@@ -456,13 +489,13 @@ function findStrongestRainProfile(entries) {
 
     const candidateScore =
       candidate.precipitation * 10000 +
-      candidate.probability * 5000 +
-      candidate.severityRank * 100 +
+      candidate.rainIntensity.rank * 2000 +
+      candidate.probability * 100 +
       candidate.windGust;
     const bestScore =
       best.precipitation * 10000 +
-      best.probability * 5000 +
-      best.severityRank * 100 +
+      best.rainIntensity.rank * 2000 +
+      best.probability * 100 +
       best.windGust;
 
     if (candidateScore > bestScore) {
@@ -476,14 +509,17 @@ function findStrongestRainProfile(entries) {
 function buildTableTooltipHtml(hour, entry) {
   const weather = getWeatherDetails(entry.weatherCode, entry.precipitation, entry.windGust, entry.probability);
   const weatherIconHtml = buildWeatherIconHtml(weather);
-  const stormAlert = weather.isStorm || (entry.probability >= 0.5 && entry.windGust >= 50)
-    ? `<div class="forecast-hover-line forecast-hover-alert">แจ้งเตือน: เสี่ยงพายุหรือฝนรุนแรง</div>`
+  const rainIntensity = getRainIntensity(entry.precipitation);
+  const stormRisk = getStormRisk(entry.weatherCode, entry.windGust, entry.probability);
+  const stormAlert = stormRisk.active
+    ? `<div class="forecast-hover-line forecast-hover-alert">สัญญาณพายุ: ${stormRisk.label}</div>`
     : "";
   return `
     <div class="forecast-hover-title">${hour} น.</div>
     <div class="forecast-hover-line">โอกาสเกิดฝน: ${Math.round(entry.probability * 100)}%</div>
     <div class="forecast-hover-line forecast-hover-weather">สภาพอากาศ: ${weatherIconHtml}<span>${weather.label}</span></div>
     <div class="forecast-hover-line">ปริมาณฝนคาดการณ์: ${formatMillimeters(entry.precipitation)}</div>
+    <div class="forecast-hover-line">ความแรงฝนตามปริมาณ: ${rainIntensity.label}</div>
     <div class="forecast-hover-line">ลมกระโชก: ${formatWindKmh(entry.windGust)}</div>
     ${stormAlert}
   `;
@@ -776,20 +812,20 @@ function buildModelAlert(selectedEntries) {
     };
   }
 
-  if (strongestProfile.weather.severity === "storm" && strongestProfile.probability >= 0.5) {
+  if (strongestProfile.stormRisk.active && strongestProfile.probability >= 0.5) {
     return {
-      label: "เฝ้าระวังพายุฝนฟ้าคะนอง",
-      detail: `${formatHourRange(peakWindow.startHour, peakWindow.endHour)} | แบบจำลองคาดฝน ${formatMillimeters(strongestProfile.precipitation)}`,
+      label: "เฝ้าระวังสัญญาณพายุฝนฟ้าคะนอง",
+      detail: `${formatHourRange(peakWindow.startHour, peakWindow.endHour)} | ${strongestProfile.stormRisk.label} | ฝนตามปริมาณ ${strongestProfile.rainIntensity.label}`,
       severity: "storm",
       source: "model",
       tickerText: ""
     };
   }
 
-  if ((strongestProfile.weather.severity === "heavy" || strongestProfile.precipitation >= 8) && strongestProfile.probability >= 0.6) {
+  if (strongestProfile.rainIntensity.rank >= 4 && strongestProfile.probability >= 0.6) {
     return {
-      label: "เฝ้าระวังฝนตกหนัก",
-      detail: `${formatHourRange(peakWindow.startHour, peakWindow.endHour)} | แบบจำลองคาดฝน ${formatMillimeters(strongestProfile.precipitation)}`,
+      label: "เฝ้าระวังฝนหนักตามปริมาณ",
+      detail: `${strongestProfile.hour} | ${formatMillimeters(strongestProfile.precipitation)} | ${strongestProfile.rainIntensity.label}`,
       severity: "heavy",
       source: "model",
       tickerText: ""
@@ -798,8 +834,8 @@ function buildModelAlert(selectedEntries) {
 
   if (peakWindow.probability >= 0.7) {
     return {
-      label: "เฝ้าระวังฝนเป็นช่วง",
-      detail: `${formatHourRange(peakWindow.startHour, peakWindow.endHour)} | โอกาสฝนสูงสุด ${Math.round(peakWindow.probability * 100)}%`,
+      label: "เฝ้าระวังโอกาสฝนสูง",
+      detail: `${formatHourRange(peakWindow.startHour, peakWindow.endHour)} | โอกาสฝนสูงสุด ${Math.round(peakWindow.probability * 100)}% | ฝนตามปริมาณ ${peakWindow.rainIntensity.label}`,
       severity: "moderate",
       source: "model",
       tickerText: ""
@@ -879,10 +915,11 @@ function updateCurrentConditionsCard() {
     snapshot.entry.windGust,
     snapshot.probability
   );
+  const rainIntensity = getRainIntensity(snapshot.entry.precipitation);
 
   forecastAvgPercent.innerText = `${Math.round(snapshot.probability * 100)}%`;
   forecastCurrentLabel.innerText = "โอกาสฝนตอนนี้";
-  displayDateRange.innerText = weather.label;
+  displayDateRange.innerText = `${weather.label} | ${rainIntensity.label}`;
   weatherIconDynamic.innerHTML = buildWeatherIconHtml(weather);
 }
 
@@ -1309,7 +1346,7 @@ function updateKpiAnalytics() {
 
   if (peakWindow) {
     kpiPeakWindow.innerText = formatHourRange(peakWindow.startHour, peakWindow.endHour);
-    kpiPeakDetail.innerText = `สูงสุด ${Math.round(peakWindow.probability * 100)}% | ${peakWindow.weather.label}`;
+    kpiPeakDetail.innerText = `สูงสุด ${Math.round(peakWindow.probability * 100)}% | ${peakWindow.weather.label} | ${peakWindow.rainIntensity.label}`;
     
     if (kpiPeakExtra && peakWindow.totalRain !== undefined) {
       kpiPeakTotalRain.innerText = formatMillimeters(peakWindow.totalRain);
@@ -1339,8 +1376,8 @@ function updateKpiAnalytics() {
   }
 
   if (strongestProfile) {
-    kpiIntensity.innerText = `จุดฝนแรงสุด: ${strongestProfile.weather.label}`;
-    kpiIntensityDetail.innerText = `${strongestProfile.hour} | ${formatMillimeters(strongestProfile.precipitation)} | ลม ${formatWindKmh(strongestProfile.windGust)}`;
+    kpiIntensity.innerText = `จุดฝนแรงสุด: ${strongestProfile.rainIntensity.label}`;
+    kpiIntensityDetail.innerText = `${strongestProfile.hour} | ${formatMillimeters(strongestProfile.precipitation)} | ${strongestProfile.weather.label} | ลม ${formatWindKmh(strongestProfile.windGust)}`;
   }
 }
 
@@ -1367,6 +1404,8 @@ function renderTable() {
         cell.innerText = "-";
       } else {
         const weather = getWeatherDetails(entry.weatherCode, entry.precipitation, entry.windGust, val);
+        const rainIntensity = getRainIntensity(entry.precipitation);
+        const stormRisk = getStormRisk(entry.weatherCode, entry.windGust, val);
         const valueWrapper = document.createElement("span");
         valueWrapper.className = "table-value";
         valueWrapper.textContent = `${Math.round(val * 100)}%`;
@@ -1376,11 +1415,8 @@ function renderTable() {
         iconWrapper.innerHTML = buildWeatherIconHtml(weather);
 
         cell.appendChild(valueWrapper);
-
-        if (weather.severity !== "calm" || entry.precipitation > 0) {
-          cell.appendChild(iconWrapper);
-        }
-        cell.setAttribute("aria-label", `${hour} ${weather.label}`);
+        cell.appendChild(iconWrapper);
+        cell.setAttribute("aria-label", `${hour} ${weather.label} ${rainIntensity.label}`);
         cell.addEventListener("mouseenter", (event) => {
           showTableTooltip(buildTableTooltipHtml(hour, entry), event);
         });
@@ -1395,11 +1431,11 @@ function renderTable() {
           cell.className = "cell-high";
         }
 
-        if (weather.severity === "heavy") {
+        if (rainIntensity.rank >= 4) {
           cell.classList.add("cell-heavy");
         }
 
-        if (weather.isStorm) {
+        if (stormRisk.active) {
           cell.classList.add("cell-storm");
         }
       }
@@ -1562,12 +1598,17 @@ function renderChart() {
               const hour = context.label;
               const entry = currentDayData.values[hour];
               const weather = getWeatherDetails(entry.weatherCode, entry.precipitation, entry.windGust, entry.probability);
+              const rainIntensity = getRainIntensity(entry.precipitation);
+              const stormRisk = getStormRisk(entry.weatherCode, entry.windGust, entry.probability);
+              const stormLine = stormRisk.active ? [`สัญญาณพายุ: ${stormRisk.label}`] : [];
 
               return [
                 `โอกาสฝน: ${context.parsed.y}%`,
                 `ลักษณะอากาศ: ${weather.label}`,
                 `ปริมาณฝน: ${formatMillimeters(entry.precipitation)}`,
-                `ลมกระโชก: ${formatWindKmh(entry.windGust)}`
+                `ความแรงฝน: ${rainIntensity.label}`,
+                `ลมกระโชก: ${formatWindKmh(entry.windGust)}`,
+                ...stormLine
               ];
             }
           }
