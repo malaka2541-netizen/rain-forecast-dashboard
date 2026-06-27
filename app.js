@@ -1534,7 +1534,7 @@ function renderChart() {
 function updateWindyRadar(lat, lon) {
   const iframe = document.getElementById("windy-radar");
   if (!iframe) return;
-  iframe.src = `https://embed.windy.com/embed.html`
+  iframe.src = `https://embed.windy.com/embed2.html`
     + `?type=map&location=coordinates`
     + `&lat=${lat}&lon=${lon}`
     + `&detailLat=${lat}&detailLon=${lon}`

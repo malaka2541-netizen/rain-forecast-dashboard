@@ -664,6 +664,7 @@ select:focus {
   overflow: hidden;
   display: flex;
   min-height: 200px;
+  position: relative;
 }
 
 .radar-card iframe {
@@ -672,6 +673,16 @@ select:focus {
   border: none;
   border-radius: inherit;
   background: #1e1e1e;
+}
+
+.radar-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: calc(100% - 60px); /* Leaves the bottom 60px timeline/play button interactive */
+  z-index: 10;
+  background: transparent;
 }
 
 
