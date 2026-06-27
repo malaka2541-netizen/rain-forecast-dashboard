@@ -12,3 +12,9 @@ services:
         value: 3.11.9
       - key: TMD_API_TOKEN
         sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_DB_SCHEMA
+        value: public

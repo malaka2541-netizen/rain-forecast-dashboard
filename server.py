@@ -5,7 +5,9 @@ import socketserver
 import sys
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 sys.stdout.reconfigure(encoding="utf-8")
 
@@ -65,6 +67,134 @@ def build_tmd_public_url(feed_type: str, uid: str, ukey: str) -> str:
     )
 
 
+def utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def parse_iso_datetime(value: str) -> datetime | None:
+    if not value:
+        return None
+
+    normalized = value.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def is_supabase_logging_enabled() -> bool:
+    return bool(os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_SERVICE_ROLE_KEY"))
+
+
+def build_supabase_url(path: str) -> str:
+    base_url = (os.getenv("SUPABASE_URL") or "").rstrip("/")
+    schema = os.getenv("SUPABASE_DB_SCHEMA", "public")
+    separator = "&" if "?" in path else "?"
+    return f"{base_url}{path}{separator}schema={urllib.parse.quote(schema)}"
+
+
+def supabase_headers(prefer: str | None = None) -> dict[str, str]:
+    service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+    headers = {
+        "Content-Type": "application/json",
+        "apikey": service_role_key,
+        "Authorization": f"Bearer {service_role_key}",
+    }
+    if prefer:
+        headers["Prefer"] = prefer
+    return headers
+
+
+def supabase_request(path: str, payload: Any, prefer: str | None = None, timeout: int = 10) -> Any:
+    request = urllib.request.Request(
+        build_supabase_url(path),
+        data=json.dumps(payload).encode("utf-8"),
+        method="POST",
+    )
+    for key, value in supabase_headers(prefer).items():
+        request.add_header(key, value)
+
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        raw = response.read().decode("utf-8")
+        return json.loads(raw) if raw else None
+
+
+def build_openmeteo_run_record(lat: str, lon: str, payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "source": "openmeteo",
+        "requested_lat": float(lat),
+        "requested_lon": float(lon),
+        "requested_at": utc_now_iso(),
+        "timezone": payload.get("timezone"),
+        "generation_time_ms": payload.get("generationtime_ms"),
+        "utc_offset_seconds": payload.get("utc_offset_seconds"),
+        "raw_payload": payload,
+    }
+
+
+def build_openmeteo_hour_rows(run_id: int, payload: dict[str, Any]) -> list[dict[str, Any]]:
+    hourly = payload.get("hourly") or {}
+    times = hourly.get("time") or []
+    issued_at = parse_iso_datetime(utc_now_iso())
+    rows = []
+
+    for index, forecast_time in enumerate(times):
+        forecast_dt = parse_iso_datetime(forecast_time)
+        lead_hours = None
+        if forecast_dt and issued_at:
+            lead_hours = round((forecast_dt - issued_at).total_seconds() / 3600, 2)
+
+        rows.append(
+            {
+                "run_id": run_id,
+                "forecast_time": forecast_dt.isoformat() if forecast_dt else forecast_time,
+                "lead_hours": lead_hours,
+                "precipitation_probability": hourly.get("precipitation_probability", [None])[index],
+                "precipitation_mm": hourly.get("precipitation", [None])[index],
+                "weather_code": hourly.get("weather_code", [None])[index],
+                "wind_speed_10m": hourly.get("wind_speed_10m", [None])[index],
+                "wind_gusts_10m": hourly.get("wind_gusts_10m", [None])[index],
+                "cape": hourly.get("cape", [None])[index],
+                "dewpoint_2m": hourly.get("dewpoint_2m", [None])[index],
+                "surface_pressure": hourly.get("surface_pressure", [None])[index],
+            }
+        )
+
+    return rows
+
+
+def log_openmeteo_snapshot(lat: str, lon: str, payload: dict[str, Any]) -> None:
+    if not is_supabase_logging_enabled():
+        return
+
+    try:
+        run_rows = supabase_request(
+            "/rest/v1/forecast_runs",
+            build_openmeteo_run_record(lat, lon, payload),
+            prefer="return=representation",
+        )
+        if not run_rows:
+            print("Supabase logging skipped: forecast_runs insert returned no row.")
+            return
+
+        run_id = run_rows[0]["id"]
+        hour_rows = build_openmeteo_hour_rows(run_id, payload)
+        if hour_rows:
+            supabase_request(
+                "/rest/v1/forecast_hourly_points",
+                hour_rows,
+                prefer="return=minimal",
+                timeout=15,
+            )
+        print(f"Supabase logging completed for Open-Meteo run {run_id}.")
+    except Exception as error:
+        print(f"Supabase logging failed: {error}")
+
+
 class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
     def respond_json(self, payload, status=200, extra_headers=None):
         self.send_response(status)
@@ -98,7 +228,9 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
 
         try:
             response_body = self.fetch_json(openmeteo_url, timeout=20)
-            self.respond_json(json.loads(response_body.decode("utf-8")))
+            payload = json.loads(response_body.decode("utf-8"))
+            self.respond_json(payload)
+            log_openmeteo_snapshot(lat, lon, payload)
             print("Open-Meteo request completed successfully.")
         except Exception as error:
             print(f"Error during Open-Meteo proxy request: {error}")
@@ -206,6 +338,7 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
                     "status": "ok",
                     "service": "rain-forecast-dashboard",
                     "tmd_configured": bool(os.getenv("TMD_API_TOKEN")),
+                    "supabase_configured": is_supabase_logging_enabled(),
                 }
             )
             return

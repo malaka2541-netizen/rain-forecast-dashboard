@@ -22,6 +22,9 @@ This project can be deployed as a Render Web Service.
    - `TMD_WARNING_UKEY` = optional, defaults to `demokey`
    - `TMD_PUBLIC_UID` = optional, defaults to `api`
    - `TMD_PUBLIC_UKEY` = optional, defaults to `api12345`
+   - `SUPABASE_URL` = optional for backtest logging
+   - `SUPABASE_SERVICE_ROLE_KEY` = optional for backtest logging
+   - `SUPABASE_DB_SCHEMA` = optional, default `public`
 
 6. Deploy the service.
 
@@ -54,3 +57,5 @@ Open these paths:
 - `/api/forecast/tmd/daily?lat=13.7563&lon=100.5018`
 - `/api/forecast/tmd/warning`
 - `/api/forecast/tmd/daily-summary`
+
+If Supabase is configured, `/health` should also show `supabase_configured: true`.
