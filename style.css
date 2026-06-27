@@ -822,16 +822,17 @@ select:focus {
 }
 
 .table-value {
-  display: inline-block;
-  vertical-align: middle;
+  display: block;
+  line-height: 1.1;
 }
 
 .table-icon {
-  display: inline-block;
-  margin-left: 0.3rem;
+  display: block;
+  margin-top: 0.22rem;
+  margin-left: 0;
   font-size: 0.88rem;
   line-height: 1;
-  vertical-align: middle;
+  text-align: center;
 }
 
 .table-icon .weather-icon,
