@@ -258,6 +258,70 @@ def build_observation_source_name() -> str:
     return "tmd-aws-1h"
 
 
+def build_probability_bucket(probability: Any) -> str:
+    if probability is None:
+        return "unknown"
+
+    try:
+        value = float(probability)
+    except (TypeError, ValueError):
+        return "unknown"
+
+    if value <= 30:
+        return "low"
+    if value <= 70:
+        return "medium"
+    return "high"
+
+
+def build_rain_intensity_class(rainfall_mm: Any) -> str:
+    if rainfall_mm is None:
+        return "unknown"
+
+    try:
+        value = float(rainfall_mm)
+    except (TypeError, ValueError):
+        return "unknown"
+
+    if value < 1.0:
+        return "drizzle"
+    if value < 2.5:
+        return "light"
+    if value < 10.0:
+        return "moderate"
+    if value < 25.0:
+        return "heavy"
+    if value < 50.0:
+        return "very-heavy"
+    return "extreme"
+
+
+def did_rain_from_mm(rainfall_mm: Any) -> bool:
+    try:
+        return float(rainfall_mm or 0) >= 0.1
+    except (TypeError, ValueError):
+        return False
+
+
+def haversine_km(lat1: Any, lon1: Any, lat2: Any, lon2: Any) -> float | None:
+    try:
+        lat1 = math.radians(float(lat1))
+        lon1 = math.radians(float(lon1))
+        lat2 = math.radians(float(lat2))
+        lon2 = math.radians(float(lon2))
+    except (TypeError, ValueError):
+        return None
+
+    delta_lat = lat2 - lat1
+    delta_lon = lon2 - lon1
+    a = (
+        math.sin(delta_lat / 2) ** 2
+        + math.cos(lat1) * math.cos(lat2) * math.sin(delta_lon / 2) ** 2
+    )
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return 6371.0 * c
+
+
 def build_tmd_aws_observation_rows(province: str, stations: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     source_name = build_observation_source_name()
@@ -284,6 +348,136 @@ def build_tmd_aws_observation_rows(province: str, stations: list[dict[str, Any]]
         )
 
     return rows
+
+
+def fetch_recent_forecast_runs(limit: int = 50) -> list[dict[str, Any]]:
+    return supabase_get(
+        f"/rest/v1/forecast_runs?select=id,requested_lat,requested_lon,requested_at"
+        f"&order=requested_at.desc&limit={limit}",
+        timeout=20,
+    ) or []
+
+
+def fetch_forecast_points_for_runs(
+    run_ids: list[int], observed_start: str, observed_end: str, limit: int = 5000
+) -> list[dict[str, Any]]:
+    if not run_ids:
+        return []
+
+    run_filter = ",".join(str(run_id) for run_id in run_ids)
+    return supabase_get(
+        "/rest/v1/forecast_hourly_points"
+        "?select=id,run_id,forecast_time,precipitation_probability,precipitation_mm"
+        f"&run_id=in.({run_filter})"
+        f"&forecast_time=gte.{urllib.parse.quote(observed_start)}"
+        f"&forecast_time=lte.{urllib.parse.quote(observed_end)}"
+        f"&order=forecast_time.asc&limit={limit}",
+        timeout=20,
+    ) or []
+
+
+def fetch_recent_rain_observations(limit: int = 1000) -> list[dict[str, Any]]:
+    return supabase_get(
+        "/rest/v1/rain_observations"
+        "?select=station_code,station_name,province,lat,lon,observed_time,rainfall_mm,source"
+        f"&order=observed_time.desc&limit={limit}",
+        timeout=20,
+    ) or []
+
+
+def group_observations_by_time(
+    observations: list[dict[str, Any]],
+) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for observation in observations:
+        observed_time = observation.get("observed_time")
+        if not observed_time:
+            continue
+        grouped.setdefault(observed_time, []).append(observation)
+    return grouped
+
+
+def build_verification_rows() -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    observations = fetch_recent_rain_observations()
+    if not observations:
+        return [], {"reason": "no_observations"}
+
+    observed_times = [
+        observation["observed_time"]
+        for observation in observations
+        if observation.get("observed_time")
+    ]
+    if not observed_times:
+        return [], {"reason": "no_observation_times"}
+
+    observed_start = min(observed_times)
+    observed_end = max(observed_times)
+    forecast_runs = fetch_recent_forecast_runs()
+    run_lookup = {run["id"]: run for run in forecast_runs if run.get("id") is not None}
+    forecast_points = fetch_forecast_points_for_runs(
+        list(run_lookup.keys()), observed_start, observed_end
+    )
+    observations_by_time = group_observations_by_time(observations)
+
+    verification_rows: list[dict[str, Any]] = []
+    matched_points = 0
+
+    for forecast_point in forecast_points:
+        forecast_time = forecast_point.get("forecast_time")
+        run = run_lookup.get(forecast_point.get("run_id"))
+        station_candidates = observations_by_time.get(forecast_time, [])
+        if not run or not station_candidates:
+            continue
+
+        best_match = None
+        best_distance = None
+        for candidate in station_candidates:
+            distance_km = haversine_km(
+                run.get("requested_lat"),
+                run.get("requested_lon"),
+                candidate.get("lat"),
+                candidate.get("lon"),
+            )
+            if distance_km is None:
+                continue
+            if best_distance is None or distance_km < best_distance:
+                best_distance = distance_km
+                best_match = candidate
+
+        if not best_match:
+            continue
+
+        observed_rainfall_mm = best_match.get("rainfall_mm")
+        forecast_rainfall_mm = forecast_point.get("precipitation_mm")
+        try:
+            absolute_error_mm = abs(float(forecast_rainfall_mm or 0) - float(observed_rainfall_mm or 0))
+        except (TypeError, ValueError):
+            absolute_error_mm = None
+
+        verification_rows.append(
+            {
+                "forecast_hour_id": forecast_point["id"],
+                "station_code": best_match.get("station_code"),
+                "observed_time": best_match.get("observed_time"),
+                "observed_rainfall_mm": observed_rainfall_mm,
+                "did_rain": did_rain_from_mm(observed_rainfall_mm),
+                "rain_intensity_class": build_rain_intensity_class(observed_rainfall_mm),
+                "probability_bucket": build_probability_bucket(
+                    forecast_point.get("precipitation_probability")
+                ),
+                "absolute_error_mm": absolute_error_mm,
+            }
+        )
+        matched_points += 1
+
+    return verification_rows, {
+        "observations_found": len(observations),
+        "forecast_runs_found": len(forecast_runs),
+        "forecast_points_considered": len(forecast_points),
+        "matched_points": matched_points,
+        "observed_start": observed_start,
+        "observed_end": observed_end,
+    }
 
 
 def collect_tmd_aws_observations(provinces: list[str] | None = None) -> dict[str, Any]:
@@ -324,6 +518,30 @@ def collect_tmd_aws_observations(provinces: list[str] | None = None) -> dict[str
         "provinces": target_provinces,
         "province_stats": province_stats,
         "rows_inserted": inserted_count,
+    }
+
+
+def run_backtest_verification() -> dict[str, Any]:
+    if not is_supabase_logging_enabled():
+        raise RuntimeError("Supabase logging is not configured.")
+
+    verification_rows, stats = build_verification_rows()
+    inserted_count = 0
+
+    if verification_rows:
+        supabase_request(
+            "/rest/v1/verification_results?on_conflict=forecast_hour_id,station_code",
+            verification_rows,
+            prefer="resolution=merge-duplicates,return=minimal",
+            timeout=20,
+        )
+        inserted_count = len(verification_rows)
+
+    return {
+        "success": True,
+        "source": "forecast-vs-observation",
+        "rows_inserted": inserted_count,
+        "stats": stats,
     }
 
 
@@ -506,6 +724,17 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
                 status=500,
             )
 
+    def handle_run_verification(self):
+        try:
+            payload = run_backtest_verification()
+            self.respond_json(payload)
+        except Exception as error:
+            log_event(f"Error during verification run: {type(error).__name__}: {error}")
+            self.respond_json(
+                {"error": str(error), "source": "forecast-vs-observation"},
+                status=500,
+            )
+
     def do_GET(self):
         parsed_url = urllib.parse.urlparse(self.path)
         query_params, lat, lon = self.parse_lat_lon(parsed_url)
@@ -518,6 +747,10 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
         collect_observation_paths = {
             "/api/backtest/collect-observations",
             "/api/forecast/backtest/collect-observations",
+        }
+        run_verification_paths = {
+            "/api/backtest/run-verification",
+            "/api/forecast/backtest/run-verification",
         }
 
         if parsed_url.path == "/health":
@@ -562,6 +795,10 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
 
         if parsed_url.path in collect_observation_paths:
             self.handle_collect_observations(query_params)
+            return
+
+        if parsed_url.path in run_verification_paths:
+            self.handle_run_verification()
             return
 
         super().do_GET()
