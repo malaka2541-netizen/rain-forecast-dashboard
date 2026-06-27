@@ -658,7 +658,7 @@ select:focus {
   gap: 2rem;
   width: max-content;
   min-width: 100%;
-  animation: ticker-scroll 28s linear infinite;
+  animation: ticker-scroll 40s linear infinite;
 }
 
 .kpi-alert-marquee:hover .kpi-alert-marquee-track {
