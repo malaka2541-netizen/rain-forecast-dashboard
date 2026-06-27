@@ -9,7 +9,7 @@ This project is ready to log Open-Meteo forecast snapshots into Supabase for fut
 - `forecast_hourly_points`
   One row per forecast hour inside that run
 - `rain_observations`
-  Reserved for actual rainfall observations later
+  Stores actual rainfall observations collected from TMD AWS station feeds
 - `verification_results`
   Reserved for backtest matching later
 
@@ -45,6 +45,31 @@ Add these environment variables to the Render web service:
 - `SUPABASE_DB_SCHEMA=public`
 
 Keep the existing TMD variables as they are.
+
+## Observation collection
+
+The server can now collect actual hourly rainfall observations from the official TMD AWS province feed and store them in `rain_observations`.
+
+Default provinces:
+
+- Bangkok
+- Samut Prakan
+- Nonthaburi
+- Pathum Thani
+- Nakhon Pathom
+- Samut Sakhon
+
+You can override them in Render with:
+
+- `OBSERVATION_PROVINCES=Bangkok,Samut Prakan,Nonthaburi,...`
+
+Trigger a collection manually:
+
+- `/api/backtest/collect-observations`
+
+Or collect only one province:
+
+- `/api/backtest/collect-observations?province=Bangkok`
 
 ## 5. Verify logging
 

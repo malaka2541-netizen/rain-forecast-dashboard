@@ -25,6 +25,7 @@ This project can be deployed as a Render Web Service.
    - `SUPABASE_URL` = optional for backtest logging
    - `SUPABASE_SERVICE_ROLE_KEY` = optional for backtest logging
    - `SUPABASE_DB_SCHEMA` = optional, default `public`
+   - `OBSERVATION_PROVINCES` = optional, comma-separated AWS provinces for actual-rain ingestion
 
 6. Deploy the service.
 
@@ -57,5 +58,6 @@ Open these paths:
 - `/api/forecast/tmd/daily?lat=13.7563&lon=100.5018`
 - `/api/forecast/tmd/warning`
 - `/api/forecast/tmd/daily-summary`
+- `/api/backtest/collect-observations`
 
 If Supabase is configured, `/health` should also show `supabase_configured: true`.

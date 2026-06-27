@@ -15,6 +15,14 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 DEFAULT_PORT = 8000
 ENV_PATH = Path(__file__).with_name(".env")
+DEFAULT_OBSERVATION_PROVINCES = [
+    "Bangkok",
+    "Samut Prakan",
+    "Nonthaburi",
+    "Pathum Thani",
+    "Nakhon Pathom",
+    "Samut Sakhon",
+]
 
 
 def log_event(message: str) -> None:
@@ -83,6 +91,13 @@ def build_tmd_public_url(feed_type: str, uid: str, ukey: str) -> str:
     )
 
 
+def build_tmd_aws_url(province: str) -> str:
+    return (
+        "https://www.tmd.go.th/api/weather/get-aws-weather-by-province"
+        f"?province={urllib.parse.quote(province)}"
+    )
+
+
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -100,6 +115,13 @@ def parse_iso_datetime(value: str) -> datetime | None:
     if parsed.tzinfo is None:
         return parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc)
+
+
+def parse_observation_provinces(raw_value: str | None) -> list[str]:
+    if not raw_value:
+        return DEFAULT_OBSERVATION_PROVINCES[:]
+    provinces = [item.strip() for item in raw_value.split(",") if item.strip()]
+    return provinces or DEFAULT_OBSERVATION_PROVINCES[:]
 
 
 def is_supabase_logging_enabled() -> bool:
@@ -159,6 +181,21 @@ def supabase_request(path: str, payload: Any, prefer: str | None = None, timeout
         raise
 
 
+def supabase_get(path: str, timeout: int = 10) -> Any:
+    log_event(f"Supabase GET starting: path={path}")
+    request = urllib.request.Request(build_supabase_url(path), method="GET")
+    for key, value in supabase_headers().items():
+        request.add_header(key, value)
+
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        raw = response.read().decode("utf-8")
+        log_event(
+            f"Supabase GET completed: path={path}, status={response.status}, "
+            f"body_bytes={len(raw.encode('utf-8')) if raw else 0}"
+        )
+        return json.loads(raw) if raw else None
+
+
 def build_openmeteo_run_record(lat: str, lon: str, payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "source": "openmeteo",
@@ -201,6 +238,93 @@ def build_openmeteo_hour_rows(run_id: int, payload: dict[str, Any]) -> list[dict
         )
 
     return rows
+
+
+def fetch_tmd_aws_observations(province: str) -> list[dict[str, Any]]:
+    aws_url = build_tmd_aws_url(province)
+    log_event(f"Fetching TMD AWS observations for province={province}: {aws_url}")
+    request = urllib.request.Request(aws_url)
+    request.add_header("Accept", "application/json")
+    request.add_header("User-Agent", "RainForecastDashboard/1.0")
+
+    with urllib.request.urlopen(request, timeout=20) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+
+    rows = payload.get("data") if isinstance(payload, dict) else payload
+    return rows if isinstance(rows, list) else []
+
+
+def build_observation_source_name() -> str:
+    return "tmd-aws-1h"
+
+
+def build_tmd_aws_observation_rows(province: str, stations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    source_name = build_observation_source_name()
+
+    for station in stations:
+        station_id = station.get("stationId")
+        observed_time = parse_iso_datetime(station.get("dateTimeUtc7", ""))
+        if not station_id or not observed_time:
+            continue
+
+        rows.append(
+            {
+                "station_code": str(station_id),
+                "station_name": station.get("stationNameEn") or station.get("stationNameTh"),
+                "province": station.get("provinceNameEn") or province,
+                "district": None,
+                "lat": station.get("stationLat"),
+                "lon": station.get("stationLon"),
+                "observed_time": observed_time.isoformat(),
+                "rainfall_mm": station.get("precip1Hr"),
+                "source": source_name,
+                "raw_payload": station,
+            }
+        )
+
+    return rows
+
+
+def collect_tmd_aws_observations(provinces: list[str] | None = None) -> dict[str, Any]:
+    if not is_supabase_logging_enabled():
+        raise RuntimeError("Supabase logging is not configured.")
+
+    target_provinces = provinces or parse_observation_provinces(
+        os.getenv("OBSERVATION_PROVINCES")
+    )
+    all_rows: list[dict[str, Any]] = []
+    province_stats: list[dict[str, Any]] = []
+
+    for province in target_provinces:
+        station_rows = fetch_tmd_aws_observations(province)
+        observation_rows = build_tmd_aws_observation_rows(province, station_rows)
+        province_stats.append(
+            {
+                "province": province,
+                "stations_returned": len(station_rows),
+                "rows_prepared": len(observation_rows),
+            }
+        )
+        all_rows.extend(observation_rows)
+
+    inserted_count = 0
+    if all_rows:
+        supabase_request(
+            "/rest/v1/rain_observations?on_conflict=station_code,observed_time,source",
+            all_rows,
+            prefer="resolution=merge-duplicates,return=minimal",
+            timeout=20,
+        )
+        inserted_count = len(all_rows)
+
+    return {
+        "success": True,
+        "source": build_observation_source_name(),
+        "provinces": target_provinces,
+        "province_stats": province_stats,
+        "rows_inserted": inserted_count,
+    }
 
 
 def log_openmeteo_snapshot(lat: str, lon: str, payload: dict[str, Any]) -> None:
@@ -367,6 +491,21 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
             print(f"Error during TMD {feed_type} feed request: {error}")
             self.respond_json({"error": str(error), "source": f"tmd-{feed_type}"}, status=500)
 
+    def handle_collect_observations(self, query_params):
+        provinces = []
+        if "province" in query_params:
+            provinces = [item for item in query_params.get("province", []) if item]
+
+        try:
+            payload = collect_tmd_aws_observations(provinces or None)
+            self.respond_json(payload)
+        except Exception as error:
+            log_event(f"Error during observation collection: {type(error).__name__}: {error}")
+            self.respond_json(
+                {"error": str(error), "source": build_observation_source_name()},
+                status=500,
+            )
+
     def do_GET(self):
         parsed_url = urllib.parse.urlparse(self.path)
         query_params, lat, lon = self.parse_lat_lon(parsed_url)
@@ -376,6 +515,10 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
         tmd_daily_paths = {"/api/tmd/daily", "/api/forecast/tmd/daily"}
         tmd_warning_paths = {"/api/tmd/warning", "/api/forecast/tmd/warning"}
         tmd_daily_summary_paths = {"/api/tmd/daily-summary", "/api/forecast/tmd/daily-summary"}
+        collect_observation_paths = {
+            "/api/backtest/collect-observations",
+            "/api/forecast/backtest/collect-observations",
+        }
 
         if parsed_url.path == "/health":
             self.respond_json(
@@ -415,6 +558,10 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
 
         if parsed_url.path in tmd_daily_summary_paths:
             self.handle_tmd_public_feed("daily-summary", query_params)
+            return
+
+        if parsed_url.path in collect_observation_paths:
+            self.handle_collect_observations(query_params)
             return
 
         super().do_GET()

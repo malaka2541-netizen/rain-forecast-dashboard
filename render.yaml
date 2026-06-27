@@ -18,3 +18,5 @@ services:
         sync: false
       - key: SUPABASE_DB_SCHEMA
         value: public
+      - key: OBSERVATION_PROVINCES
+        value: Bangkok,Samut Prakan,Nonthaburi,Pathum Thani,Nakhon Pathom,Samut Sakhon
