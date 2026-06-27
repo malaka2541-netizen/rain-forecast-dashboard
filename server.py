@@ -3,6 +3,7 @@ import json
 import os
 import socketserver
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
@@ -96,17 +97,18 @@ def is_supabase_logging_enabled() -> bool:
 
 def build_supabase_url(path: str) -> str:
     base_url = (os.getenv("SUPABASE_URL") or "").rstrip("/")
-    schema = os.getenv("SUPABASE_DB_SCHEMA", "public")
-    separator = "&" if "?" in path else "?"
-    return f"{base_url}{path}{separator}schema={urllib.parse.quote(schema)}"
+    return f"{base_url}{path}"
 
 
 def supabase_headers(prefer: str | None = None) -> dict[str, str]:
     service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+    schema = os.getenv("SUPABASE_DB_SCHEMA", "public")
     headers = {
         "Content-Type": "application/json",
         "apikey": service_role_key,
         "Authorization": f"Bearer {service_role_key}",
+        "Accept-Profile": schema,
+        "Content-Profile": schema,
     }
     if prefer:
         headers["Prefer"] = prefer
@@ -127,13 +129,21 @@ def supabase_request(path: str, payload: Any, prefer: str | None = None, timeout
     for key, value in supabase_headers(prefer).items():
         request.add_header(key, value)
 
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        raw = response.read().decode("utf-8")
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            raw = response.read().decode("utf-8")
+            log_event(
+                f"Supabase request completed: path={path}, status={response.status}, "
+                f"body_bytes={len(raw.encode('utf-8')) if raw else 0}"
+            )
+            return json.loads(raw) if raw else None
+    except urllib.error.HTTPError as error:
+        error_body = error.read().decode("utf-8", errors="replace")
         log_event(
-            f"Supabase request completed: path={path}, status={response.status}, "
-            f"body_bytes={len(raw.encode('utf-8')) if raw else 0}"
+            f"Supabase HTTP error: path={path}, status={error.code}, "
+            f"reason={error.reason}, body={error_body}"
         )
-        return json.loads(raw) if raw else None
+        raise
 
 
 def build_openmeteo_run_record(lat: str, lon: str, payload: dict[str, Any]) -> dict[str, Any]:
