@@ -25,6 +25,7 @@ let sourceComparisonState = {
 const displayLocation = document.getElementById("display-location");
 const displayDateRange = document.getElementById("display-date-range");
 const forecastAvgPercent = document.getElementById("forecast-avg-percent");
+const forecastCurrentLabel = document.getElementById("forecast-current-label");
 const kpiSelectedDate = document.getElementById("kpi-selected-date");
 const kpiPeakWindow = document.getElementById("kpi-peak-window");
 const kpiPeakDetail = document.getElementById("kpi-peak-detail");
@@ -176,6 +177,57 @@ function getSelectedDayEntries() {
       probability: getEntryProbability(currentDayData.values[hour])
     }))
     .filter(item => item.probability !== null);
+}
+
+function getBangkokNowKeys() {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hourCycle: "h23"
+  });
+
+  const parts = Object.fromEntries(
+    formatter.formatToParts(new Date()).map(part => [part.type, part.value])
+  );
+
+  return {
+    dateKey: `${parts.year}-${parts.month}-${parts.day}`,
+    hourKey: `${parts.hour}:00`
+  };
+}
+
+function findNearestHourKey(values, targetHourKey) {
+  const sortedHours = Object.keys(values).sort();
+  if (!sortedHours.length) return null;
+  if (values[targetHourKey]) return targetHourKey;
+
+  const fallbackHour = [...sortedHours]
+    .reverse()
+    .find(hour => hour <= targetHourKey);
+
+  return fallbackHour || sortedHours[0];
+}
+
+function getCurrentForecastSnapshot() {
+  if (!activeForecastData.length) return null;
+
+  const { dateKey, hourKey } = getBangkokNowKeys();
+  const currentDayData = activeForecastData.find(day => day.date === dateKey) || activeForecastData[0];
+  if (!currentDayData) return null;
+
+  const resolvedHourKey = findNearestHourKey(currentDayData.values, hourKey);
+  if (!resolvedHourKey) return null;
+
+  const entry = currentDayData.values[resolvedHourKey];
+  return {
+    date: currentDayData.date,
+    hour: resolvedHourKey,
+    entry,
+    probability: getEntryProbability(entry)
+  };
 }
 
 function formatHourRange(startHour, endHour) {
@@ -661,6 +713,29 @@ function applyAlertVisualState(severity) {
   alertIcon.innerHTML = `<i class="${iconMap[severity] || "fa-solid fa-triangle-exclamation"}"></i>`;
 }
 
+function updateCurrentConditionsCard() {
+  const snapshot = getCurrentForecastSnapshot();
+  if (!snapshot || snapshot.probability === null) {
+    forecastAvgPercent.innerText = "-";
+    forecastCurrentLabel.innerText = "โอกาสฝนตอนนี้";
+    displayDateRange.innerText = "ไม่พบข้อมูลสภาพอากาศปัจจุบัน";
+    weatherIconDynamic.innerHTML = '<i class="fa-solid fa-cloud" style="color: #64748b;"></i>';
+    return;
+  }
+
+  const weather = getWeatherDetails(
+    snapshot.entry.weatherCode,
+    snapshot.entry.precipitation,
+    snapshot.entry.windGust,
+    snapshot.probability
+  );
+
+  forecastAvgPercent.innerText = `${Math.round(snapshot.probability * 100)}%`;
+  forecastCurrentLabel.innerText = "โอกาสฝนตอนนี้";
+  displayDateRange.innerText = weather.label;
+  weatherIconDynamic.innerHTML = buildWeatherIconHtml(weather);
+}
+
 async function fetchOpenMeteoForecast(lat, lon) {
   const response = await fetch(`/api/forecast/openmeteo?lat=${lat}&lon=${lon}&_t=${Date.now()}`);
   if (!response.ok) {
@@ -988,19 +1063,11 @@ function loadDataAndRefresh() {
     selectedDate = activeForecastData[0].date;
   }
   
-  updateDateRangeText();
+  updateCurrentConditionsCard();
   renderDayTabs();
   renderTable();
   updateKpiAnalytics();
   renderChart();
-}
-
-// Update the Date range in Left Panel
-function updateDateRangeText() {
-  if (activeForecastData.length === 0) return;
-  const firstDate = formatDateThai(activeForecastData[0].date);
-  const lastDate = formatDateThai(activeForecastData[activeForecastData.length - 1].date);
-  displayDateRange.innerText = `ช่วงพยากรณ์: ${firstDate} - ${lastDate}`;
 }
 
 // Render tabs for days
@@ -1027,14 +1094,9 @@ function renderDayTabs() {
 // Update cards statistics
 function updateKpiAnalytics() {
   const selectedEntries = getSelectedDayEntries();
-  const selectedDaySum = selectedEntries.reduce((sum, item) => sum + item.probability, 0);
-  const selectedAvg = selectedEntries.length > 0 ? Math.round((selectedDaySum / selectedEntries.length) * 100) : 0;
-  forecastAvgPercent.innerText = `${selectedAvg}%`;
   if (kpiSelectedDate) {
     kpiSelectedDate.innerText = selectedDate ? formatDateContext(selectedDate) : "-";
   }
-  
-  updateWeatherIcon(selectedAvg);
 
   if (!selectedEntries.length) {
     kpiPeakWindow.innerText = "-";
@@ -1064,19 +1126,6 @@ function updateKpiAnalytics() {
     kpiIntensity.innerText = strongestProfile.weather.label;
     kpiIntensityDetail.innerText = `${strongestProfile.hour} | ${formatMillimeters(strongestProfile.precipitation)} | ลม ${formatWindKmh(strongestProfile.windGust)}`;
   }
-}
-
-// Update the weather icon visually based on selected day average rain probability
-function updateWeatherIcon(avgProb) {
-  let iconHtml = "";
-  if (avgProb <= 30) {
-    iconHtml = '<i class="fa-solid fa-cloud-sun" style="color: #4ade80;"></i>';
-  } else if (avgProb <= 70) {
-    iconHtml = '<i class="fa-solid fa-cloud-sun-rain" style="color: #fbbf24;"></i>';
-  } else {
-    iconHtml = '<i class="fa-solid fa-cloud-showers-water" style="color: #f87171;"></i>';
-  }
-  weatherIconDynamic.innerHTML = iconHtml;
 }
 
 // Render dynamic rows of the table
