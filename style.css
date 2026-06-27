@@ -814,9 +814,42 @@ select:focus {
   .kpi-card {
     min-height: unset;
   }
+  .radar-card {
+    min-height: 300px; /* Make radar map taller on tablets when stacked */
+  }
 }
 
 @media (max-width: 640px) {
+  .app-container {
+    padding: 0.75rem;
+    gap: 1rem;
+  }
+
+  .top-row-grid {
+    gap: 1rem;
+  }
+
+  .combined-weather-card {
+    padding: 1rem;
+  }
+
+  .radar-card {
+    min-height: 280px; /* Sensible height for mobile */
+  }
+
+  .alert-card {
+    padding: 0.85rem 1rem;
+  }
+
+  .chart-card, .table-card {
+    padding: 1rem;
+  }
+
+  .modal-card {
+    padding: 1.25rem;
+    margin: 0.5rem;
+  }
+
   .kpi-card-main {
     gap: 0.8rem;
   }
