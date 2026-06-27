@@ -164,6 +164,59 @@ function formatWindKmh(value) {
   return Number.isFinite(Number(value)) ? `${Math.round(Number(value))} กม./ชม.` : "-";
 }
 
+function stripAdministrativePrefix(value) {
+  return String(value || "")
+    .replace(/^(จังหวัด|อำเภอ|เขต|ตำบล|แขวง)\s*/u, "")
+    .trim();
+}
+
+function hasDistrictInLocationName(locationName) {
+  return String(locationName || "").trim().split(/\s+/).length >= 2;
+}
+
+async function resolveLocationNameFromCoordinates(lat, lon, fallbackName = "") {
+  if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) {
+    return fallbackName || DEFAULT_LOCATION_NAME;
+  }
+
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=12&accept-language=th`
+    );
+    if (!response.ok) {
+      throw new Error(`Reverse geocoding returned status ${response.status}`);
+    }
+
+    const data = await response.json();
+    const address = data?.address || {};
+    const province = stripAdministrativePrefix(address.province || address.state || "");
+    const district = stripAdministrativePrefix(
+      address.city_district ||
+      address.suburb ||
+      address.quarter ||
+      address.county ||
+      address.city ||
+      address.district ||
+      address.municipality ||
+      address.town ||
+      address.borough ||
+      ""
+    );
+
+    if (district && province && district !== province) {
+      return `${district} ${province}`;
+    }
+
+    if (province) {
+      return province;
+    }
+  } catch (error) {
+    console.warn("Unable to resolve district from coordinates:", error);
+  }
+
+  return fallbackName || DEFAULT_LOCATION_NAME;
+}
+
 function getEntryProbability(entry) {
   return entry && typeof entry.probability === "number" ? entry.probability : null;
 }
@@ -1448,6 +1501,14 @@ async function fetchDashboardData() {
   showLoading("กำลังเรียกข้อมูลพยากรณ์ล่าสุด...");
 
   try {
+    if (!hasDistrictInLocationName(currentLocName)) {
+      const resolvedLocationName = await resolveLocationNameFromCoordinates(currentLat, currentLon, currentLocName);
+      if (resolvedLocationName && resolvedLocationName !== currentLocName) {
+        currentLocName = resolvedLocationName;
+        localStorage.setItem("appLocName", currentLocName);
+      }
+    }
+
     const [openMeteoResult, tmdResult] = await Promise.allSettled([
       fetchOpenMeteoForecast(currentLat, currentLon),
       fetchTmdForecastSummary(currentLat, currentLon)
