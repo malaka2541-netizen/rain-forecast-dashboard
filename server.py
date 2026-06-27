@@ -7,7 +7,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +23,7 @@ DEFAULT_OBSERVATION_PROVINCES = [
     "Nakhon Pathom",
     "Samut Sakhon",
 ]
+BANGKOK_TIMEZONE = timezone(timedelta(hours=7))
 
 
 def log_event(message: str) -> None:
@@ -115,6 +116,39 @@ def parse_iso_datetime(value: str) -> datetime | None:
     if parsed.tzinfo is None:
         return parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc)
+
+
+def parse_openmeteo_datetime(value: str, utc_offset_seconds: int | None = None) -> datetime | None:
+    if not value:
+        return None
+
+    normalized = value.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+
+    if parsed.tzinfo is not None:
+        return parsed.astimezone(timezone.utc)
+
+    source_tz = timezone(timedelta(seconds=utc_offset_seconds or 0))
+    return parsed.replace(tzinfo=source_tz).astimezone(timezone.utc)
+
+
+def to_bangkok_hour_bucket(value: str | datetime | None) -> str | None:
+    if value is None:
+        return None
+
+    parsed = value if isinstance(value, datetime) else parse_iso_datetime(value)
+    if not parsed:
+        return None
+
+    local_dt = parsed.astimezone(BANGKOK_TIMEZONE).replace(
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+    return local_dt.isoformat()
 
 
 def parse_observation_provinces(raw_value: str | None) -> list[str]:
@@ -213,10 +247,11 @@ def build_openmeteo_hour_rows(run_id: int, payload: dict[str, Any]) -> list[dict
     hourly = payload.get("hourly") or {}
     times = hourly.get("time") or []
     issued_at = parse_iso_datetime(utc_now_iso())
+    utc_offset_seconds = payload.get("utc_offset_seconds")
     rows = []
 
     for index, forecast_time in enumerate(times):
-        forecast_dt = parse_iso_datetime(forecast_time)
+        forecast_dt = parse_openmeteo_datetime(forecast_time, utc_offset_seconds)
         lead_hours = None
         if forecast_dt and issued_at:
             lead_hours = round((forecast_dt - issued_at).total_seconds() / 3600, 2)
@@ -359,7 +394,7 @@ def fetch_recent_forecast_runs(limit: int = 50) -> list[dict[str, Any]]:
 
 
 def fetch_forecast_points_for_runs(
-    run_ids: list[int], observed_start: str, observed_end: str, limit: int = 5000
+    run_ids: list[int], limit: int = 5000
 ) -> list[dict[str, Any]]:
     if not run_ids:
         return []
@@ -369,8 +404,6 @@ def fetch_forecast_points_for_runs(
         "/rest/v1/forecast_hourly_points"
         "?select=id,run_id,forecast_time,precipitation_probability,precipitation_mm"
         f"&run_id=in.({run_filter})"
-        f"&forecast_time=gte.{urllib.parse.quote(observed_start)}"
-        f"&forecast_time=lte.{urllib.parse.quote(observed_end)}"
         f"&order=forecast_time.asc&limit={limit}",
         timeout=20,
     ) or []
@@ -385,12 +418,12 @@ def fetch_recent_rain_observations(limit: int = 1000) -> list[dict[str, Any]]:
     ) or []
 
 
-def group_observations_by_time(
+def group_observations_by_hour_bucket(
     observations: list[dict[str, Any]],
 ) -> dict[str, list[dict[str, Any]]]:
     grouped: dict[str, list[dict[str, Any]]] = {}
     for observation in observations:
-        observed_time = observation.get("observed_time")
+        observed_time = to_bangkok_hour_bucket(observation.get("observed_time"))
         if not observed_time:
             continue
         grouped.setdefault(observed_time, []).append(observation)
@@ -410,20 +443,16 @@ def build_verification_rows() -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if not observed_times:
         return [], {"reason": "no_observation_times"}
 
-    observed_start = min(observed_times)
-    observed_end = max(observed_times)
     forecast_runs = fetch_recent_forecast_runs()
     run_lookup = {run["id"]: run for run in forecast_runs if run.get("id") is not None}
-    forecast_points = fetch_forecast_points_for_runs(
-        list(run_lookup.keys()), observed_start, observed_end
-    )
-    observations_by_time = group_observations_by_time(observations)
+    forecast_points = fetch_forecast_points_for_runs(list(run_lookup.keys()))
+    observations_by_time = group_observations_by_hour_bucket(observations)
 
     verification_rows: list[dict[str, Any]] = []
     matched_points = 0
 
     for forecast_point in forecast_points:
-        forecast_time = forecast_point.get("forecast_time")
+        forecast_time = to_bangkok_hour_bucket(forecast_point.get("forecast_time"))
         run = run_lookup.get(forecast_point.get("run_id"))
         station_candidates = observations_by_time.get(forecast_time, [])
         if not run or not station_candidates:
@@ -475,8 +504,8 @@ def build_verification_rows() -> tuple[list[dict[str, Any]], dict[str, Any]]:
         "forecast_runs_found": len(forecast_runs),
         "forecast_points_considered": len(forecast_points),
         "matched_points": matched_points,
-        "observed_start": observed_start,
-        "observed_end": observed_end,
+        "observed_start": min(observed_times),
+        "observed_end": max(observed_times),
     }
 
 
