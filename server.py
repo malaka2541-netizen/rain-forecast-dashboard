@@ -418,6 +418,16 @@ def fetch_recent_rain_observations(limit: int = 1000) -> list[dict[str, Any]]:
     ) or []
 
 
+def fetch_verification_results(limit: int = 5000) -> list[dict[str, Any]]:
+    return supabase_get(
+        "/rest/v1/verification_results"
+        "?select=station_code,observed_time,observed_rainfall_mm,did_rain,"
+        "rain_intensity_class,probability_bucket,absolute_error_mm"
+        f"&order=observed_time.desc&limit={limit}",
+        timeout=20,
+    ) or []
+
+
 def group_observations_by_hour_bucket(
     observations: list[dict[str, Any]],
 ) -> dict[str, list[dict[str, Any]]]:
@@ -571,6 +581,91 @@ def run_backtest_verification() -> dict[str, Any]:
         "source": "forecast-vs-observation",
         "rows_inserted": inserted_count,
         "stats": stats,
+    }
+
+
+def average(values: list[float]) -> float | None:
+    return round(sum(values) / len(values), 3) if values else None
+
+
+def summarize_group(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    total_checks = len(rows)
+    rain_hits = sum(1 for row in rows if row.get("did_rain") is True)
+    observed_mm_values = []
+    error_values = []
+
+    for row in rows:
+        rainfall_mm = row.get("observed_rainfall_mm")
+        abs_error = row.get("absolute_error_mm")
+        try:
+            if rainfall_mm is not None:
+                observed_mm_values.append(float(rainfall_mm))
+        except (TypeError, ValueError):
+            pass
+        try:
+            if abs_error is not None:
+                error_values.append(float(abs_error))
+        except (TypeError, ValueError):
+            pass
+
+    hit_rate = round((rain_hits / total_checks) * 100, 1) if total_checks else None
+    return {
+        "total_checks": total_checks,
+        "rain_hits": rain_hits,
+        "actual_rain_rate_pct": hit_rate,
+        "avg_observed_rain_mm": average(observed_mm_values),
+        "avg_abs_error_mm": average(error_values),
+    }
+
+
+def summarize_backtest_results() -> dict[str, Any]:
+    if not is_supabase_logging_enabled():
+        raise RuntimeError("Supabase logging is not configured.")
+
+    rows = fetch_verification_results()
+    if not rows:
+        return {
+            "success": True,
+            "summary": {
+                "total_checks": 0,
+                "message": "No verification results yet.",
+            },
+        }
+
+    probability_groups: dict[str, list[dict[str, Any]]] = {}
+    intensity_groups: dict[str, list[dict[str, Any]]] = {}
+
+    for row in rows:
+        probability_groups.setdefault(row.get("probability_bucket") or "unknown", []).append(row)
+        intensity_groups.setdefault(row.get("rain_intensity_class") or "unknown", []).append(row)
+
+    summary = summarize_group(rows)
+    observed_times = [row["observed_time"] for row in rows if row.get("observed_time")]
+    summary["observed_start"] = min(observed_times) if observed_times else None
+    summary["observed_end"] = max(observed_times) if observed_times else None
+
+    probability_breakdown = {
+        key: summarize_group(group_rows)
+        for key, group_rows in sorted(probability_groups.items())
+    }
+    intensity_breakdown = {
+        key: summarize_group(group_rows)
+        for key, group_rows in sorted(intensity_groups.items())
+    }
+
+    confidence_note = []
+    total_checks = summary["total_checks"]
+    if total_checks < 24:
+        confidence_note.append("sample-small")
+    if total_checks < 100:
+        confidence_note.append("early-stage")
+
+    return {
+        "success": True,
+        "summary": summary,
+        "probability_breakdown": probability_breakdown,
+        "rain_intensity_breakdown": intensity_breakdown,
+        "confidence_flags": confidence_note,
     }
 
 
@@ -764,6 +859,17 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
                 status=500,
             )
 
+    def handle_backtest_summary(self):
+        try:
+            payload = summarize_backtest_results()
+            self.respond_json(payload)
+        except Exception as error:
+            log_event(f"Error during backtest summary: {type(error).__name__}: {error}")
+            self.respond_json(
+                {"error": str(error), "source": "forecast-vs-observation-summary"},
+                status=500,
+            )
+
     def do_GET(self):
         parsed_url = urllib.parse.urlparse(self.path)
         query_params, lat, lon = self.parse_lat_lon(parsed_url)
@@ -780,6 +886,10 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
         run_verification_paths = {
             "/api/backtest/run-verification",
             "/api/forecast/backtest/run-verification",
+        }
+        backtest_summary_paths = {
+            "/api/backtest/summary",
+            "/api/forecast/backtest/summary",
         }
 
         if parsed_url.path == "/health":
@@ -828,6 +938,10 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
 
         if parsed_url.path in run_verification_paths:
             self.handle_run_verification()
+            return
+
+        if parsed_url.path in backtest_summary_paths:
+            self.handle_backtest_summary()
             return
 
         super().do_GET()
