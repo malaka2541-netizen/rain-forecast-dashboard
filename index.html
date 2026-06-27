@@ -36,7 +36,12 @@
         </div>
       </div>
 
-      <div class="header-actions"></div>
+      <div class="header-actions">
+        <button id="btn-open-guide" class="btn btn-secondary" type="button">
+          <i class="fa-solid fa-circle-question"></i>
+          วิธีอ่านข้อมูล
+        </button>
+      </div>
     </header>
 
     <main class="dashboard-grid-full">
@@ -213,6 +218,55 @@
       <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid var(--card-border);">
         <button id="btn-cancel-loc" style="padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid var(--card-border); background: var(--input-bg); color: var(--text-main); cursor: pointer;">ยกเลิก</button>
         <button id="btn-save-loc" style="padding: 0.5rem 1rem; border-radius: 8px; border: none; background: var(--primary); color: white; cursor: pointer; font-weight: bold;">บันทึกพิกัด</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="guide-modal" class="modal-overlay hidden">
+    <div class="modal-card animate-modal">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-circle-question"></i> วิธีอ่านข้อมูลพยากรณ์</h2>
+        <button id="btn-close-guide-header" class="btn-icon" type="button" aria-label="ปิดหน้าต่างวิธีอ่านข้อมูล">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <ul class="guide-steps">
+          <li>
+            <strong>โอกาสเกิดฝน (%)</strong><br>
+            คือโอกาสที่จุดพิกัดที่เลือกจะมีฝนวัดได้ในชั่วโมงนั้น ไม่ได้แปลว่าฝนจะตกตามเปอร์เซ็นต์ของพื้นที่จังหวัด
+          </li>
+          <li>
+            <strong>สีในตาราง</strong><br>
+            สีเขียว = โอกาสฝนน้อย, สีเหลือง = ปานกลาง, สีส้ม = สูง ใช้ดูแนวโน้มเสี่ยงแบบกวาดตาเร็ว
+          </li>
+          <li>
+            <strong>สัญลักษณ์สภาพอากาศ</strong><br>
+            ช่วยบอกลักษณะอากาศของชั่วโมงนั้น เช่น ท้องฟ้าโปร่ง, เมฆบางส่วน, เมฆมาก, ฝนปรอย, ฝนหนัก หรือพายุฝนฟ้าคะนอง
+          </li>
+          <li>
+            <strong>ปริมาณฝน (มม.)</strong><br>
+            ใช้ดูว่าถ้าฝนตก มีแนวโน้มเบาหรือหนัก ยิ่งค่ามากยิ่งควรเฝ้าระวังผลกระทบหน้างาน
+          </li>
+          <li>
+            <strong>ลมกระโชก (กม./ชม.)</strong><br>
+            ใช้ประเมินสภาพลมแรงร่วมกับฝน โดยเฉพาะงานกลางแจ้ง วัสดุคลุม และความปลอดภัยหน้างาน
+          </li>
+          <li>
+            <strong>การ์ดแจ้งเตือน TMD</strong><br>
+            ถ้ามีประกาศจากกรมอุตุนิยมวิทยา ระบบจะแสดงหัวข้อเตือนและข้อความวิ่งเพื่อให้เห็นความเสี่ยงสำคัญทันที
+          </li>
+        </ul>
+
+        <div class="alert alert-warning">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <div>
+            ข้อมูลชุดนี้ใช้เพื่อช่วยวางแผนและประเมินความเสี่ยง ไม่ได้ตัดสินแทนหน้างาน ควรดูแนวโน้มหลายชั่วโมงร่วมกับเรดาร์ฝนและประกาศเตือนล่าสุด
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-close-guide" class="btn btn-primary" type="button">เข้าใจแล้ว</button>
       </div>
     </div>
   </div>

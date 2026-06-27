@@ -1009,6 +1009,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const locModal = document.getElementById("location-modal");
   const btnCancelLoc = document.getElementById("btn-cancel-loc");
   const btnSaveLoc = document.getElementById("btn-save-loc");
+  const guideModal = document.getElementById("guide-modal");
+  const btnOpenGuide = document.getElementById("btn-open-guide");
+  const btnCloseGuide = document.getElementById("btn-close-guide");
+  const btnCloseGuideHeader = document.getElementById("btn-close-guide-header");
   
   const inputProvince = document.getElementById("input-province");
   const inputDistrict = document.getElementById("input-district");
@@ -1206,6 +1210,39 @@ document.addEventListener("DOMContentLoaded", () => {
       fetchDashboardData();
     });
   }
+
+  if (btnOpenGuide && guideModal) {
+    btnOpenGuide.addEventListener("click", () => {
+      guideModal.classList.remove("hidden");
+    });
+  }
+
+  [btnCloseGuide, btnCloseGuideHeader].forEach(button => {
+    if (button && guideModal) {
+      button.addEventListener("click", () => {
+        guideModal.classList.add("hidden");
+      });
+    }
+  });
+
+  if (guideModal) {
+    guideModal.addEventListener("click", (event) => {
+      if (event.target === guideModal) {
+        guideModal.classList.add("hidden");
+      }
+    });
+  }
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      if (guideModal && !guideModal.classList.contains("hidden")) {
+        guideModal.classList.add("hidden");
+      }
+      if (locModal && !locModal.classList.contains("hidden")) {
+        locModal.classList.add("hidden");
+      }
+    }
+  });
 });
 
 // Refresh whole dashboard UI
