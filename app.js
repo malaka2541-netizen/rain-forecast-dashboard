@@ -1,4 +1,4 @@
-﻿// Rain Forecast Dashboard Logic - API Only Mode (Light Theme Only)
+// Rain Forecast Dashboard Logic - API Only Mode (Light Theme Only)
 
 // Default coordinates and location name
 const DEFAULT_LAT = 13.7563;
@@ -180,9 +180,7 @@ async function resolveLocationNameFromCoordinates(lat, lon, fallbackName = "") {
   }
 
   try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=12&accept-language=th`
-    );
+    const response = await fetch(`/api/geocode?lat=${lat}&lon=${lon}`);
     if (!response.ok) {
       throw new Error(`Reverse geocoding returned status ${response.status}`);
     }
@@ -1008,7 +1006,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const selectedProv = inputProvince.value;
     if (!selectedProv) return;
 
-    // First try Nominatim (more accurate for Thailand)
+    // Use Nominatim search (via proxy logic if needed or direct if acceptable for this search)
     try {
       const q = selectedDist ? `${selectedDist} ${selectedProv} Thailand` : `${selectedProv} Thailand`;
       let res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`);
@@ -1059,7 +1057,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Reverse Geocode
         try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&accept-language=th`);
+          const res = await fetch(`/api/geocode?lat=${lat}&lon=${lon}`);
           const data = await res.json();
           if (data && data.address) {
             const p = data.address.province || data.address.state || "";
@@ -1226,6 +1224,17 @@ function updateKpiAnalytics() {
   kpiAlertDetail.innerText = alertCard.detail;
   applyAlertVisualState(alertCard.severity);
   updateAlertMarquee(alertCard);
+
+  const alertLinkBtn = document.getElementById("kpi-alert-link");
+  if (alertLinkBtn) {
+    if (alertCard.url) {
+      alertLinkBtn.href = alertCard.url;
+      alertLinkBtn.classList.remove("hidden");
+    } else {
+      alertLinkBtn.href = "#";
+      alertLinkBtn.classList.add("hidden");
+    }
+  }
 
   if (strongestProfile) {
     kpiIntensity.innerText = `จุดฝนแรงสุด: ${strongestProfile.weather.label}`;

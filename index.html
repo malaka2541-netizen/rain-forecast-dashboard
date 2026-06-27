@@ -40,6 +40,9 @@
     </header>
 
     <main class="dashboard-grid-full">
+      <div class="kpi-context" style="margin-bottom: -0.5rem; padding-left: 0.25rem;">
+        <strong id="kpi-selected-date">-</strong>
+      </div>
       <div class="top-row-grid">
         <div id="location-card" class="location-profile glass-card clickable-card" title="คลิกเพื่อตั้งค่าสถานที่">
           <div class="weather-art">
@@ -58,9 +61,6 @@
         </div>
 
         <div class="kpi-container">
-          <div class="kpi-context">
-            <strong id="kpi-selected-date">-</strong>
-          </div>
           <div class="kpi-card glass-card">
             <div class="kpi-icon icon-blue"><i class="fa-solid fa-cloud-rain"></i></div>
             <div class="kpi-info">
@@ -78,6 +78,9 @@
                 <p id="kpi-alert-headline">กำลังตรวจสอบ</p>
                 <span id="kpi-alert-detail">ดึงข้อมูลล่าสุดจาก TMD</span>
                 <div class="kpi-alert-inline">
+                  <a id="kpi-alert-link" href="#" target="_blank" class="btn-alert-link hidden" title="เปิดเอกสารประกาศฉบับเต็มจาก TMD">
+                    <i class="fa-solid fa-file-pdf"></i> อ่านประกาศฉบับเต็ม
+                  </a>
                   <strong id="kpi-intensity">ฝนหนัก</strong>
                   <span id="kpi-intensity-detail">17:00 | 4.9 มม. | ลม 28 กม./ชม.</span>
                 </div>

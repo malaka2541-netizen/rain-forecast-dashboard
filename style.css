@@ -258,7 +258,7 @@ body {
   display: grid;
   grid-template-columns: 360px 1fr;
   gap: 1.5rem;
-  align-items: start;
+  align-items: stretch;
 }
 
 @media (max-width: 1024px) {
@@ -518,7 +518,6 @@ select:focus {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1.25rem;
-  align-content: start;
 }
 
 .kpi-context {
@@ -1004,6 +1003,36 @@ select:focus {
   padding: 1rem;
   font-size: 0.78rem;
   color: var(--text-muted);
+}
+
+.btn-alert-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  background-color: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-decoration: none;
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  transition: all 0.2s;
+}
+
+.btn-alert-link:hover {
+  background-color: rgba(220, 38, 38, 0.15);
+  border-color: rgba(220, 38, 38, 0.3);
+}
+
+.dark-mode .btn-alert-link {
+  background-color: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.25);
+}
+
+.dark-mode .btn-alert-link:hover {
+  background-color: rgba(248, 113, 113, 0.25);
 }
 
 /* Modal Overlay & Modal Window */

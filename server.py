@@ -104,6 +104,23 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
             print(f"Error during Open-Meteo proxy request: {error}")
             self.respond_json({"error": str(error), "source": "openmeteo"}, status=500)
 
+    def handle_geocode(self, lat, lon):
+        nominatim_url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}&zoom=10&accept-language=th"
+        print(f"Proxying Reverse Geocode request to: {nominatim_url}")
+
+        try:
+            req = urllib.request.Request(nominatim_url)
+            req.add_header('User-Agent', 'RainForecastApp/1.0 (local@example.com)')
+            req.add_header('Accept', 'application/json')
+            with urllib.request.urlopen(req, timeout=10) as response:
+                res_data = response.read()
+                payload = json.loads(res_data.decode("utf-8"))
+                self.respond_json(payload)
+                print("Reverse Geocode request completed successfully.")
+        except Exception as error:
+            print(f"Error during Reverse Geocode request: {error}")
+            self.respond_json({"error": str(error), "source": "nominatim"}, status=500)
+
     def handle_tmd_forecast(self, lat, lon, forecast_type, query_params):
         token = os.getenv("TMD_API_TOKEN") or query_params.get("token", [""])[0]
         if not token:
@@ -200,6 +217,10 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
 
         if parsed_url.path in openmeteo_paths:
             self.handle_openmeteo_forecast(lat, lon)
+            return
+
+        if parsed_url.path == "/api/geocode":
+            self.handle_geocode(lat, lon)
             return
 
         if parsed_url.path in tmd_hourly_paths:
