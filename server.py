@@ -52,6 +52,19 @@ def build_tmd_url(lat: str, lon: str, forecast_type: str) -> str:
     )
 
 
+def build_tmd_public_url(feed_type: str, uid: str, ukey: str) -> str:
+    if feed_type == "warning":
+        return (
+            "https://data.tmd.go.th/api/WeatherWarningNews/v2/"
+            f"?format=json&uid={urllib.parse.quote(uid)}&ukey={urllib.parse.quote(ukey)}"
+        )
+
+    return (
+        "https://data.tmd.go.th/api/DailyForecast/v2/"
+        f"?format=json&uid={urllib.parse.quote(uid)}&ukey={urllib.parse.quote(ukey)}"
+    )
+
+
 class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
     def respond_json(self, payload, status=200, extra_headers=None):
         self.send_response(status)
@@ -129,6 +142,37 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
             print(f"Error during TMD {forecast_type} proxy request: {error}")
             self.respond_json({"error": str(error), "source": f"tmd-{forecast_type}"}, status=500)
 
+    def handle_tmd_public_feed(self, feed_type, query_params):
+        if feed_type == "warning":
+            uid = os.getenv("TMD_WARNING_UID") or query_params.get("uid", ["demo"])[0]
+            ukey = os.getenv("TMD_WARNING_UKEY") or query_params.get("ukey", ["demokey"])[0]
+        else:
+            uid = os.getenv("TMD_PUBLIC_UID") or query_params.get("uid", ["api"])[0]
+            ukey = os.getenv("TMD_PUBLIC_UKEY") or query_params.get("ukey", ["api12345"])[0]
+
+        public_url = build_tmd_public_url(feed_type, uid, ukey)
+        print(f"Proxying TMD {feed_type} feed to: {public_url}")
+
+        try:
+            response_body = self.fetch_json(public_url, timeout=20)
+            payload = json.loads(response_body.decode("utf-8"))
+            payload["source"] = f"tmd-{feed_type}"
+            self.respond_json(payload)
+            print(f"TMD {feed_type} feed completed successfully.")
+        except urllib.error.HTTPError as error:
+            print(f"TMD {feed_type} feed HTTP error: {error.code} {error.reason}")
+            try:
+                error_body = error.read().decode("utf-8")
+                payload = json.loads(error_body)
+            except Exception:
+                payload = {"error": f"TMD public feed returned {error.code} {error.reason}"}
+
+            payload["source"] = f"tmd-{feed_type}"
+            self.respond_json(payload, status=error.code)
+        except Exception as error:
+            print(f"Error during TMD {feed_type} feed request: {error}")
+            self.respond_json({"error": str(error), "source": f"tmd-{feed_type}"}, status=500)
+
     def do_GET(self):
         parsed_url = urllib.parse.urlparse(self.path)
         query_params, lat, lon = self.parse_lat_lon(parsed_url)
@@ -136,6 +180,8 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
         openmeteo_paths = {"/api/openmeteo", "/api/forecast/openmeteo"}
         tmd_hourly_paths = {"/api/tmd", "/api/tmd/hourly", "/api/forecast/tmd/hourly"}
         tmd_daily_paths = {"/api/tmd/daily", "/api/forecast/tmd/daily"}
+        tmd_warning_paths = {"/api/tmd/warning", "/api/forecast/tmd/warning"}
+        tmd_daily_summary_paths = {"/api/tmd/daily-summary", "/api/forecast/tmd/daily-summary"}
 
         if parsed_url.path == "/health":
             self.respond_json(
@@ -162,6 +208,14 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
 
         if parsed_url.path in tmd_daily_paths:
             self.handle_tmd_forecast(lat, lon, "daily", query_params)
+            return
+
+        if parsed_url.path in tmd_warning_paths:
+            self.handle_tmd_public_feed("warning", query_params)
+            return
+
+        if parsed_url.path in tmd_daily_summary_paths:
+            self.handle_tmd_public_feed("daily-summary", query_params)
             return
 
         super().do_GET()

@@ -14,6 +14,7 @@ let currentLocName = localStorage.getItem("appLocName") || DEFAULT_LOCATION_NAME
 let activeForecastData = [];
 let selectedDate = "";
 let forecastChartInstance = null;
+let tmdAdvisoryState = null;
 let sourceComparisonState = {
   openMeteoText: "กำลังโหลด...",
   tmdText: "รอการเชื่อมต่อ...",
@@ -27,8 +28,8 @@ const forecastAvgPercent = document.getElementById("forecast-avg-percent");
 const kpiSelectedDate = document.getElementById("kpi-selected-date");
 const kpiPeakWindow = document.getElementById("kpi-peak-window");
 const kpiPeakDetail = document.getElementById("kpi-peak-detail");
-const kpiLowWindow = document.getElementById("kpi-low-window");
-const kpiLowDetail = document.getElementById("kpi-low-detail");
+const kpiAlertHeadline = document.getElementById("kpi-alert-headline");
+const kpiAlertDetail = document.getElementById("kpi-alert-detail");
 const kpiIntensity = document.getElementById("kpi-intensity");
 const kpiIntensityDetail = document.getElementById("kpi-intensity-detail");
 const weatherIconDynamic = document.getElementById("weather-icon-dynamic");
@@ -451,6 +452,215 @@ function buildTmdStatusText(dailyForecasts, hourlyForecasts) {
   return `24 ชม. สูงสุด ${next24HoursMaxRain.toFixed(1)} มม.`;
 }
 
+function getFirstReadableText(value) {
+  if (Array.isArray(value)) {
+    return value.find(item => typeof item === "string" && /[A-Za-z]/.test(item)) || value.find(item => typeof item === "string") || "";
+  }
+  return typeof value === "string" ? value : "";
+}
+
+function formatWarningEffectRange(text) {
+  if (!text) return "";
+
+  const match = text.match(/Effect during ([^)]+)\)/i);
+  if (!match) return "";
+
+  let range = match[1]
+    .replace("June", "มิ.ย.")
+    .replace("July", "ก.ค.")
+    .replace("August", "ส.ค.")
+    .replace("September", "ก.ย.")
+    .replace("October", "ต.ค.")
+    .replace("November", "พ.ย.")
+    .replace("December", "ธ.ค.")
+    .replace("January", "ม.ค.")
+    .replace("February", "ก.พ.")
+    .replace("March", "มี.ค.")
+    .replace("April", "เม.ย.")
+    .replace("May", "พ.ค.")
+    .trim();
+
+  range = range.replace(/\s+/g, " ");
+  range = range.replace(/(\d{4})$/, (_, year) => String((Number(year) + 543) % 100));
+  return `มีผล ${range}`;
+}
+
+function extractWarningReference(text) {
+  if (!text) return "";
+  const match = text.match(/No\.\s*([0-9/()-]+)/i);
+  return match ? `ฉบับที่ ${match[1]}` : "";
+}
+
+function formatTmdDateTime(dateTimeString) {
+  if (!dateTimeString) return "";
+  const safeString = dateTimeString.replace(" ", "T");
+  const date = new Date(safeString);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const months = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+  const day = date.getDate();
+  const month = months[date.getMonth()];
+  const hour = String(date.getHours()).padStart(2, "0");
+  const minute = String(date.getMinutes()).padStart(2, "0");
+  return `${day} ${month} ${hour}:${minute} น.`;
+}
+
+function inferTmdAlertLabel(titleText, headlineText, descriptionText) {
+  const combined = [titleText, headlineText, descriptionText].join(" ").toLowerCase();
+
+  if (combined.includes("tropical storm") || combined.includes("typhoon") || combined.includes("depression")) {
+    return "TMD เตือนพายุเขตร้อน";
+  }
+  if (combined.includes("summer storm")) {
+    return "TMD เตือนพายุฤดูร้อน";
+  }
+  if (combined.includes("heavy to very heavy rain")) {
+    return "TMD เตือนฝนหนักถึงหนักมาก";
+  }
+  if (combined.includes("heavy rain")) {
+    return "TMD เตือนฝนหนัก";
+  }
+  if (combined.includes("thundershower") || combined.includes("thunderstorm")) {
+    return "TMD เฝ้าระวังฝนฟ้าคะนอง";
+  }
+  if (combined.includes("wind-waves")) {
+    return "TMD เตือนลมแรงและคลื่นสูง";
+  }
+  return "TMD แจ้งเตือนสภาพอากาศ";
+}
+
+function inferTmdAlertSeverity(labelText) {
+  if (labelText.includes("พายุ") || labelText.includes("หนักมาก")) return "storm";
+  if (labelText.includes("ฝนหนัก") || labelText.includes("ลมแรง")) return "heavy";
+  if (labelText.includes("ฝนฟ้าคะนอง")) return "moderate";
+  return "calm";
+}
+
+function normalizeTmdWarning(responseData) {
+  const warning = responseData?.Warning;
+  if (!warning || (typeof warning === "object" && !Array.isArray(warning) && Object.keys(warning).length === 0)) {
+    return null;
+  }
+
+  const titleEnglish = getFirstReadableText(warning.TitleEnglish);
+  const headlineEnglish = getFirstReadableText(warning.HeadlineEnglish);
+  const descriptionEnglish = getFirstReadableText(warning.DescriptionEnglish);
+  const label = inferTmdAlertLabel(titleEnglish, headlineEnglish, descriptionEnglish);
+  const effectText = formatWarningEffectRange(titleEnglish || headlineEnglish);
+  const announceText = formatTmdDateTime(warning.AnnounceDate);
+  const issueText = extractWarningReference(titleEnglish || headlineEnglish);
+  const detail = [
+    effectText,
+    announceText ? `อัปเดต ${announceText}` : issueText
+  ].filter(Boolean).join(" | ") || "ประกาศเตือนล่าสุดจาก TMD";
+
+  return {
+    label,
+    detail,
+    severity: inferTmdAlertSeverity(label),
+    source: "warning",
+    url: getFirstReadableText(warning.WebUrlEnglish) || warning.WebUrlThai || "",
+    publishedAt: warning.AnnounceDate || warning.EffectStartDate || ""
+  };
+}
+
+function normalizeTmdDailySummary(responseData) {
+  const dailyForecast = responseData?.DailyForecast;
+  if (!dailyForecast) return null;
+
+  const overviewEnglish = getFirstReadableText(dailyForecast.OverallDescriptionEnglish);
+  const dateLabel = getFirstReadableText(dailyForecast.Date);
+  if (!overviewEnglish) return null;
+
+  const label = inferTmdAlertLabel("", overviewEnglish, overviewEnglish);
+  return {
+    label,
+    detail: dateLabel ? `พยากรณ์ 24 ชม. | ${dateLabel}` : "พยากรณ์ 24 ชม. จาก TMD",
+    severity: inferTmdAlertSeverity(label),
+    source: "daily-summary"
+  };
+}
+
+function buildModelAlert(selectedEntries) {
+  const peakWindow = findPeakRainWindow(selectedEntries);
+  const strongestProfile = findStrongestRainProfile(selectedEntries);
+
+  if (!peakWindow || !strongestProfile) {
+    return {
+      label: "ไม่มีสัญญาณฝนหนักเด่นชัด",
+      detail: "ไม่พบช่วงเสี่ยงฝนหนักจากแบบจำลอง",
+      severity: "calm",
+      source: "model"
+    };
+  }
+
+  if (strongestProfile.weather.severity === "storm" && strongestProfile.probability >= 0.5) {
+    return {
+      label: "เฝ้าระวังพายุฝนฟ้าคะนอง",
+      detail: `${formatHourRange(peakWindow.startHour, peakWindow.endHour)} | แบบจำลองคาดฝน ${formatMillimeters(strongestProfile.precipitation)}`,
+      severity: "storm",
+      source: "model"
+    };
+  }
+
+  if ((strongestProfile.weather.severity === "heavy" || strongestProfile.precipitation >= 8) && strongestProfile.probability >= 0.6) {
+    return {
+      label: "เฝ้าระวังฝนตกหนัก",
+      detail: `${formatHourRange(peakWindow.startHour, peakWindow.endHour)} | แบบจำลองคาดฝน ${formatMillimeters(strongestProfile.precipitation)}`,
+      severity: "heavy",
+      source: "model"
+    };
+  }
+
+  if (peakWindow.probability >= 0.7) {
+    return {
+      label: "เฝ้าระวังฝนเป็นช่วง",
+      detail: `${formatHourRange(peakWindow.startHour, peakWindow.endHour)} | โอกาสฝนสูงสุด ${Math.round(peakWindow.probability * 100)}%`,
+      severity: "moderate",
+      source: "model"
+    };
+  }
+
+  return {
+    label: "ไม่มีสัญญาณฝนหนักเด่นชัด",
+    detail: "ไม่พบช่วงเสี่ยงฝนหนักจากแบบจำลอง",
+    severity: "calm",
+    source: "model"
+  };
+}
+
+function resolveAlertCardData(selectedEntries) {
+  if (tmdAdvisoryState?.warning) {
+    return tmdAdvisoryState.warning;
+  }
+  if (tmdAdvisoryState?.dailySummary) {
+    return tmdAdvisoryState.dailySummary;
+  }
+  return buildModelAlert(selectedEntries);
+}
+
+function applyAlertVisualState(severity) {
+  const iconMap = {
+    storm: "fa-solid fa-cloud-bolt",
+    heavy: "fa-solid fa-cloud-showers-heavy",
+    moderate: "fa-solid fa-cloud-rain",
+    calm: "fa-solid fa-shield-halved"
+  };
+
+  const toneMap = {
+    storm: "icon-red",
+    heavy: "icon-yellow",
+    moderate: "icon-blue",
+    calm: "icon-green"
+  };
+
+  const alertIcon = document.getElementById("kpi-alert-icon");
+  if (!alertIcon) return;
+
+  alertIcon.className = `kpi-icon ${toneMap[severity] || "icon-yellow"}`;
+  alertIcon.innerHTML = `<i class="${iconMap[severity] || "fa-solid fa-triangle-exclamation"}"></i>`;
+}
+
 async function fetchOpenMeteoForecast(lat, lon) {
   const response = await fetch(`/api/forecast/openmeteo?lat=${lat}&lon=${lon}&_t=${Date.now()}`);
   if (!response.ok) {
@@ -494,36 +704,60 @@ async function fetchOpenMeteoForecast(lat, lon) {
   };
 }
 
+async function fetchJsonWithMeta(url, label) {
+  const response = await fetch(url);
+  const data = await response.json();
+
+  if (!response.ok) {
+    const error = new Error(data.error || `${label} returned status ${response.status}`);
+    error.status = response.status;
+    error.payload = data;
+    throw error;
+  }
+
+  return data;
+}
+
 async function fetchTmdForecastSummary(lat, lon) {
-  const [dailyResponse, hourlyResponse] = await Promise.all([
-    fetch(`/api/forecast/tmd/daily?lat=${lat}&lon=${lon}&_t=${Date.now()}`),
-    fetch(`/api/forecast/tmd/hourly?lat=${lat}&lon=${lon}&_t=${Date.now()}`)
+  const [warningResult, dailySummaryResult, dailyResult, hourlyResult] = await Promise.allSettled([
+    fetchJsonWithMeta(`/api/forecast/tmd/warning?_t=${Date.now()}`, "TMD warning"),
+    fetchJsonWithMeta(`/api/forecast/tmd/daily-summary?_t=${Date.now()}`, "TMD daily summary"),
+    fetchJsonWithMeta(`/api/forecast/tmd/daily?lat=${lat}&lon=${lon}&_t=${Date.now()}`, "TMD daily"),
+    fetchJsonWithMeta(`/api/forecast/tmd/hourly?lat=${lat}&lon=${lon}&_t=${Date.now()}`, "TMD hourly")
   ]);
 
-  const dailyData = await dailyResponse.json();
-  const hourlyData = await hourlyResponse.json();
+  const dailyForecasts = dailyResult.status === "fulfilled"
+    ? normalizeTmdDailyForecast(dailyResult.value)
+    : [];
+  const hourlyForecasts = hourlyResult.status === "fulfilled"
+    ? normalizeTmdHourlyForecast(hourlyResult.value)
+    : [];
 
-  if (!dailyResponse.ok) {
-    const dailyError = new Error(dailyData.error || `TMD daily returned status ${dailyResponse.status}`);
-    dailyError.status = dailyResponse.status;
-    dailyError.payload = dailyData;
-    throw dailyError;
-  }
+  const tokenError = [dailyResult, hourlyResult]
+    .filter(result => result.status === "rejected")
+    .map(result => result.reason)
+    .find(reason => reason?.status === 503 || reason?.payload?.configured === false);
 
-  if (!hourlyResponse.ok) {
-    const hourlyError = new Error(hourlyData.error || `TMD hourly returned status ${hourlyResponse.status}`);
-    hourlyError.status = hourlyResponse.status;
-    hourlyError.payload = hourlyData;
-    throw hourlyError;
-  }
+  const warning = warningResult.status === "fulfilled"
+    ? normalizeTmdWarning(warningResult.value)
+    : null;
+  const dailySummary = dailySummaryResult.status === "fulfilled"
+    ? normalizeTmdDailySummary(dailySummaryResult.value)
+    : null;
 
-  const dailyForecasts = normalizeTmdDailyForecast(dailyData);
-  const hourlyForecasts = normalizeTmdHourlyForecast(hourlyData);
+  const statusText = dailyForecasts.length || hourlyForecasts.length
+    ? buildTmdStatusText(dailyForecasts, hourlyForecasts)
+    : warning?.label || dailySummary?.label || "ยังไม่มีข้อมูลจาก TMD";
 
   return {
     dailyForecasts,
     hourlyForecasts,
-    statusText: buildTmdStatusText(dailyForecasts, hourlyForecasts)
+    statusText,
+    alert: {
+      warning,
+      dailySummary
+    },
+    tokenConfigured: !tokenError
   };
 }
 
@@ -805,29 +1039,26 @@ function updateKpiAnalytics() {
   if (!selectedEntries.length) {
     kpiPeakWindow.innerText = "-";
     kpiPeakDetail.innerText = "ไม่พบข้อมูลรายชั่วโมง";
-    kpiLowWindow.innerText = "-";
-    kpiLowDetail.innerText = "ไม่พบข้อมูลรายชั่วโมง";
+    kpiAlertHeadline.innerText = "ไม่มีข้อมูลเตือน";
+    kpiAlertDetail.innerText = "ไม่พบข้อมูลรายชั่วโมง";
     kpiIntensity.innerText = "-";
     kpiIntensityDetail.innerText = "ไม่พบข้อมูลรายชั่วโมง";
+    applyAlertVisualState("calm");
     return;
   }
 
   const peakWindow = findPeakRainWindow(selectedEntries);
-  const lowWindow = findLongestLowRainWindow(selectedEntries);
   const strongestProfile = findStrongestRainProfile(selectedEntries);
+  const alertCard = resolveAlertCardData(selectedEntries);
 
   if (peakWindow) {
     kpiPeakWindow.innerText = formatHourRange(peakWindow.startHour, peakWindow.endHour);
     kpiPeakDetail.innerText = `สูงสุด ${Math.round(peakWindow.probability * 100)}% | ${peakWindow.weather.label}`;
   }
 
-  if (lowWindow) {
-    kpiLowWindow.innerText = formatHourRange(lowWindow.startHour, lowWindow.endHour);
-    kpiLowDetail.innerText = `รวม ${lowWindow.hourCount} ชม. | สูงสุดไม่เกิน ${Math.round(lowWindow.maxProbability * 100)}%`;
-  } else {
-    kpiLowWindow.innerText = "-";
-    kpiLowDetail.innerText = "ไม่พบช่วงฝนต่ำต่อเนื่อง";
-  }
+  kpiAlertHeadline.innerText = alertCard.label;
+  kpiAlertDetail.innerText = alertCard.detail;
+  applyAlertVisualState(alertCard.severity);
 
   if (strongestProfile) {
     kpiIntensity.innerText = strongestProfile.weather.label;
@@ -1138,7 +1369,8 @@ async function fetchDashboardData() {
 
     if (tmdResult.status === "fulfilled") {
       sourceComparisonState.tmdText = tmdResult.value.statusText;
-      sourceComparisonState.tmdConfigured = true;
+      sourceComparisonState.tmdConfigured = tmdResult.value.tokenConfigured;
+      tmdAdvisoryState = tmdResult.value.alert;
     } else {
       const errorPayload = tmdResult.reason?.payload;
       const isConfigIssue = tmdResult.reason?.status === 503 || errorPayload?.configured === false;
@@ -1146,9 +1378,11 @@ async function fetchDashboardData() {
       sourceComparisonState.tmdText = isConfigIssue
         ? "ยังไม่ได้ตั้งค่า TMD API token บนเซิร์ฟเวอร์"
         : "เชื่อมต่อ TMD ไม่สำเร็จในรอบนี้";
+      tmdAdvisoryState = null;
       console.warn("TMD cross-check unavailable:", tmdResult.reason);
     }
 
+    updateKpiAnalytics();
     renderSourceComparison();
   } catch (error) {
     console.error(error);

@@ -7,6 +7,7 @@ This project can be deployed as a Render Web Service.
 - Push this project to a GitHub repository.
 - Keep `.env` local only. Do not commit it.
 - Add your TMD token in Render as `TMD_API_TOKEN`.
+- Optional: add TMD public-feed credentials if you want to override the example keys used for warning feeds.
 
 ## Render setup
 
@@ -17,6 +18,10 @@ This project can be deployed as a Render Web Service.
 5. In the service settings, add:
 
    - `TMD_API_TOKEN` = your real TMD API token
+   - `TMD_WARNING_UID` = optional, defaults to `demo`
+   - `TMD_WARNING_UKEY` = optional, defaults to `demokey`
+   - `TMD_PUBLIC_UID` = optional, defaults to `api`
+   - `TMD_PUBLIC_UKEY` = optional, defaults to `api12345`
 
 6. Deploy the service.
 
@@ -47,3 +52,5 @@ Open these paths:
 - `/health`
 - `/api/forecast/openmeteo?lat=13.7563&lon=100.5018`
 - `/api/forecast/tmd/daily?lat=13.7563&lon=100.5018`
+- `/api/forecast/tmd/warning`
+- `/api/forecast/tmd/daily-summary`
