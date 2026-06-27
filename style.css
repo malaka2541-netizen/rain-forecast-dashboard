@@ -291,6 +291,67 @@ body {
   .top-row-grid {
     grid-template-columns: 1fr !important;
   }
+
+  /* Combined weather card — fit single column */
+  .combined-weather-card {
+    padding: 1.25rem;
+  }
+
+  .combined-weather-card .weather-art {
+    gap: 1rem;
+  }
+
+  .weather-icon-wrapper {
+    font-size: 2.8rem;
+  }
+
+  .temp-display span:first-child {
+    font-size: 2.2rem;
+  }
+
+  .temp-display .label {
+    font-size: 0.7rem;
+  }
+
+  .location-details h3 {
+    font-size: 1.1rem;
+  }
+
+  .location-details p {
+    font-size: 0.8rem;
+  }
+
+  /* Radar — proper height when stacked */
+  .radar-card {
+    min-height: 300px;
+  }
+
+  .radar-card iframe {
+    min-height: 300px;
+  }
+
+  /* Alert card */
+  .alert-card {
+    padding: 1rem;
+  }
+
+  /* Table horizontal scroll for narrow screens */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .chart-header, .table-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .day-tabs {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 /* Left Panel & Controls */
