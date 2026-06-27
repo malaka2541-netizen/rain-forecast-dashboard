@@ -49,89 +49,101 @@ function clampProbability(probabilityPercent) {
   return Math.max(0, Math.min(1, parseFloat((numericValue / 100).toFixed(2))));
 }
 
-function getWeatherDetails(weatherCode, precipitationMm = 0, windGustKmh = 0) {
+function getWeatherDetails(weatherCode, precipitationMm = 0, windGustKmh = 0, probability = null) {
   const code = Number.isFinite(Number(weatherCode)) ? Number(weatherCode) : null;
   const rainMm = Number.isFinite(Number(precipitationMm)) ? Number(precipitationMm) : 0;
   const gustKmh = Number.isFinite(Number(windGustKmh)) ? Number(windGustKmh) : 0;
+  const rainProbability = typeof probability === "number" ? Math.max(0, Math.min(1, probability)) : null;
+  let details;
 
   if ([95, 96, 99].includes(code)) {
-    return {
+    details = {
       icon: "⛈️",
       label: code === 99 ? "พายุฝนฟ้าคะนองรุนแรง มีโอกาสลูกเห็บ" : "พายุฝนฟ้าคะนอง",
       severity: "storm",
       isStorm: true
     };
-  }
-
-  if ([65, 80, 81, 82].includes(code)) {
-    return {
+  } else if ([65, 80, 81, 82].includes(code)) {
+    details = {
       icon: "🌊",
       label: rainMm >= 10 ? "ฝนตกหนักมาก" : "ฝนตกหนัก",
       severity: "heavy",
       isStorm: gustKmh >= 50
     };
-  }
-
-  if ([61, 63, 66, 67].includes(code)) {
-    return {
+  } else if ([61, 63, 66, 67].includes(code)) {
+    details = {
       icon: "☔",
       label: "ฝนตกปานกลาง",
       severity: "moderate",
       isStorm: false
     };
-  }
-
-  if ([51, 53, 55, 56, 57].includes(code)) {
-    return {
+  } else if ([51, 53, 55, 56, 57].includes(code)) {
+    details = {
       icon: "🌦️",
       label: "ฝนปรอยๆ",
       severity: "drizzle",
       isStorm: false
     };
-  }
-
-  if ([45, 48].includes(code)) {
-    return {
+  } else if ([45, 48].includes(code)) {
+    details = {
       icon: "🌫️",
       label: "หมอก",
       severity: "calm",
       isStorm: false
     };
-  }
-
-  if ([1, 2].includes(code)) {
-    return {
+  } else if ([1, 2].includes(code)) {
+    details = {
       icon: "⛅",
       label: "เมฆบางส่วน",
       severity: "calm",
       isStorm: false
     };
-  }
-
-  if (code === 3) {
-    return {
+  } else if (code === 3) {
+    details = {
       icon: "☁️",
       label: "เมฆมาก",
       severity: "calm",
       isStorm: false
     };
-  }
-
-  if (code === 0) {
-    return {
+  } else if (code === 0) {
+    details = {
       icon: "☀️",
       label: "ท้องฟ้าโปร่ง",
       severity: "calm",
       isStorm: false
     };
+  } else {
+    details = {
+      icon: rainMm > 0 ? "🌧️" : "☁️",
+      label: rainMm > 0 ? "มีฝน" : "สภาพอากาศทั่วไป",
+      severity: rainMm > 0 ? "moderate" : "calm",
+      isStorm: false
+    };
   }
 
-  return {
-    icon: rainMm > 0 ? "🌧️" : "☁️",
-    label: rainMm > 0 ? "มีฝน" : "สภาพอากาศทั่วไป",
-    severity: rainMm > 0 ? "moderate" : "calm",
-    isStorm: false
-  };
+  if (rainProbability === null || details.severity === "calm") {
+    return details;
+  }
+
+  if (rainProbability < 0.2) {
+    return {
+      icon: rainMm > 0 || details.severity !== "calm" ? "🌦️" : "⛅",
+      label: details.severity === "storm" ? "โอกาสฝนฟ้าคะนองต่ำ" : "โอกาสฝนต่ำ",
+      severity: rainMm > 0 ? "drizzle" : "calm",
+      isStorm: false
+    };
+  }
+
+  if (rainProbability < 0.4 && (details.severity === "storm" || details.severity === "heavy")) {
+    return {
+      icon: "🌦️",
+      label: details.severity === "storm" ? "มีโอกาสฝนฟ้าคะนองบางช่วง" : "มีโอกาสฝนเป็นช่วง",
+      severity: "moderate",
+      isStorm: false
+    };
+  }
+
+  return details;
 }
 
 function formatMillimeters(value) {
@@ -205,11 +217,12 @@ function findPeakRainWindow(entries) {
   }
 
   const peakEntry = entries[peakIndex];
-  const weather = getWeatherDetails(
-    peakEntry.entry.weatherCode,
-    peakEntry.entry.precipitation,
-    peakEntry.entry.windGust
-  );
+    const weather = getWeatherDetails(
+      peakEntry.entry.weatherCode,
+      peakEntry.entry.precipitation,
+      peakEntry.entry.windGust,
+      peakEntry.probability
+    );
 
   return {
     startHour: entries[startIndex].hour,
@@ -265,7 +278,7 @@ function findStrongestRainProfile(entries) {
   let best = null;
 
   entries.forEach(item => {
-    const weather = getWeatherDetails(item.entry.weatherCode, item.entry.precipitation, item.entry.windGust);
+    const weather = getWeatherDetails(item.entry.weatherCode, item.entry.precipitation, item.entry.windGust, item.probability);
     const candidate = {
       hour: item.hour,
       probability: item.probability ?? 0,
@@ -300,8 +313,8 @@ function findStrongestRainProfile(entries) {
 }
 
 function buildTableTooltipHtml(hour, entry) {
-  const weather = getWeatherDetails(entry.weatherCode, entry.precipitation, entry.windGust);
-  const stormAlert = weather.isStorm || entry.windGust >= 50
+  const weather = getWeatherDetails(entry.weatherCode, entry.precipitation, entry.windGust, entry.probability);
+  const stormAlert = weather.isStorm || (entry.probability >= 0.5 && entry.windGust >= 50)
     ? `<div class="forecast-hover-line forecast-hover-alert">แจ้งเตือน: เสี่ยงพายุหรือฝนรุนแรง</div>`
     : "";
   return `
@@ -847,7 +860,7 @@ function renderTable() {
       if (val === null || val === undefined) {
         cell.innerText = "-";
       } else {
-        const weather = getWeatherDetails(entry.weatherCode, entry.precipitation, entry.windGust);
+        const weather = getWeatherDetails(entry.weatherCode, entry.precipitation, entry.windGust, val);
         const valueWrapper = document.createElement("span");
         valueWrapper.className = "table-value";
         valueWrapper.textContent = `${Math.round(val * 100)}%`;
@@ -1042,7 +1055,7 @@ function renderChart() {
             label: function(context) {
               const hour = context.label;
               const entry = currentDayData.values[hour];
-              const weather = getWeatherDetails(entry.weatherCode, entry.precipitation, entry.windGust);
+              const weather = getWeatherDetails(entry.weatherCode, entry.precipitation, entry.windGust, entry.probability);
 
               return [
                 `โอกาสฝน: ${context.parsed.y}%`,
