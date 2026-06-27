@@ -13,11 +13,22 @@ This project can be deployed as a Render Web Service.
 1. Create a new **Web Service** on Render.
 2. Connect your GitHub repository.
 3. Render should detect `render.yaml` automatically.
-4. In the service settings, add:
+4. Set **Auto-Deploy** to `On Commit` so every push to branch `main` redeploys automatically.
+5. In the service settings, add:
 
    - `TMD_API_TOKEN` = your real TMD API token
 
-5. Deploy the service.
+6. Deploy the service.
+
+## Daily workflow
+
+- Edit code locally
+- Commit and push to GitHub branch `main`
+- Render rebuilds and deploys automatically
+
+Note:
+- Render auto-deploy works on `push` to the linked branch, not on unsaved local file edits.
+- If you ever use **Deploy a specific commit**, Render can disable auto-deploy for that service until you turn it back on in Settings.
 
 ## Runtime details
 

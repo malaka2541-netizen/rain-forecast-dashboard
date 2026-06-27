@@ -24,6 +24,7 @@ let sourceComparisonState = {
 const displayLocation = document.getElementById("display-location");
 const displayDateRange = document.getElementById("display-date-range");
 const forecastAvgPercent = document.getElementById("forecast-avg-percent");
+const kpiSelectedDate = document.getElementById("kpi-selected-date");
 const kpiPeakWindow = document.getElementById("kpi-peak-window");
 const kpiPeakDetail = document.getElementById("kpi-peak-detail");
 const kpiLowWindow = document.getElementById("kpi-low-window");
@@ -368,6 +369,7 @@ function hideTableTooltip() {
 }
 
 function renderSourceComparison() {
+  if (!openMeteoSourceStatus || !tmdSourceStatus) return;
   openMeteoSourceStatus.textContent = sourceComparisonState.openMeteoText;
   tmdSourceStatus.textContent = sourceComparisonState.tmdText;
 }
@@ -794,6 +796,9 @@ function updateKpiAnalytics() {
   const selectedDaySum = selectedEntries.reduce((sum, item) => sum + item.probability, 0);
   const selectedAvg = selectedEntries.length > 0 ? Math.round((selectedDaySum / selectedEntries.length) * 100) : 0;
   forecastAvgPercent.innerText = `${selectedAvg}%`;
+  if (kpiSelectedDate) {
+    kpiSelectedDate.innerText = selectedDate ? formatDateContext(selectedDate) : "-";
+  }
   
   updateWeatherIcon(selectedAvg);
 
@@ -1108,7 +1113,7 @@ function renderChart() {
 }
 
 async function fetchDashboardData() {
-  showLoading("กำลังเรียกข้อมูลพยากรณ์จาก Open-Meteo และตรวจสัญญาณร่วมกับ TMD...");
+  showLoading("กำลังเรียกข้อมูลพยากรณ์ล่าสุด...");
 
   try {
     const [openMeteoResult, tmdResult] = await Promise.allSettled([
@@ -1127,7 +1132,7 @@ async function fetchDashboardData() {
 
     activeForecastData = forecastDays;
     sourceComparisonState.openMeteoText = statusText;
-    displayLocation.innerText = `${currentLocName} (พยากรณ์อากาศ Open-Meteo Ensemble 10 วัน)`;
+    displayLocation.innerText = currentLocName;
     console.log("Weather data loaded from Open-Meteo successfully.");
     loadDataAndRefresh();
 
@@ -1178,6 +1183,20 @@ function formatDateTab(dateString) {
   const day = dateObj.getDate();
   
   return `${dayName} ${day}`;
+}
+
+function formatDateContext(dateString) {
+  const parts = dateString.split("-");
+  const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+  const thDays = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
+  const thMonthsShort = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+
+  const dayName = thDays[dateObj.getDay()];
+  const day = dateObj.getDate();
+  const month = thMonthsShort[dateObj.getMonth()];
+  const yearTh = (dateObj.getFullYear() + 543) % 100;
+
+  return `${dayName} ${day} ${month} ${yearTh}`;
 }
 
 // Show loading overlay

@@ -3,6 +3,7 @@ services:
     name: rain-forecast-dashboard
     runtime: python
     plan: free
+    autoDeployTrigger: commit
     buildCommand: pip install -r requirements.txt
     startCommand: python server.py
     healthCheckPath: /health

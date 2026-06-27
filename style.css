@@ -154,8 +154,7 @@ body {
   font-size: 0.75rem;
   color: var(--text-muted);
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.04em;
 }
 
 .header-actions {
@@ -265,10 +264,6 @@ body {
 @media (max-width: 1024px) {
   .dashboard-grid,
   .top-row-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .source-comparison {
     grid-template-columns: 1fr;
   }
 }
@@ -511,39 +506,6 @@ select:focus {
   font-weight: 500;
 }
 
-.source-comparison {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-}
-
-.source-chip {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.75rem 0.9rem;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.45);
-  border: 1px solid var(--card-border);
-  text-align: left;
-}
-
-.source-chip-label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.source-chip-value {
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--text-main);
-  line-height: 1.35;
-}
-
 /* Right Panel Layout */
 .right-panel {
   display: flex;
@@ -557,6 +519,25 @@ select:focus {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1.25rem;
   align-content: start;
+}
+
+.kpi-context {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  padding: 0 0.15rem;
+  color: var(--text-muted);
+}
+
+.kpi-context-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.kpi-context strong {
+  font-size: 0.9rem;
+  color: var(--text-main);
 }
 
 .kpi-card {

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="ระบบพยากรณ์โอกาสเกิดฝนล่วงหน้า 10 วัน พร้อมมุมมองรายชั่วโมงเพื่อช่วยวางแผนงานกลางแจ้งจากข้อมูล Open-Meteo และ TMD">
-  <meta name="keywords" content="พยากรณ์ฝน, โอกาสเกิดฝน, Open-Meteo, TMD, งานกลางแจ้ง, เทคอนกรีต">
+  <meta name="description" content="ระบบพยากรณ์โอกาสเกิดฝนล่วงหน้า 10 วัน พร้อมมุมมองรายชั่วโมงเพื่อช่วยวางแผนงานกลางแจ้ง">
+  <meta name="keywords" content="พยากรณ์ฝน, โอกาสเกิดฝน, งานกลางแจ้ง, เทคอนกรีต, วางแผนฝน">
   <title>Rain Forecast Dashboard - ระบบพยากรณ์โอกาสเกิดฝน</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -32,7 +32,7 @@
         </div>
         <div class="logo-text">
           <h1>Rain Forecast</h1>
-          <span>TMD NWP Dashboard</span>
+          <span>Hourly Rain Planning Dashboard</span>
         </div>
       </div>
 
@@ -55,19 +55,13 @@
             <h3 id="display-location">กำลังดึงข้อมูลจาก API...</h3>
             <p id="display-date-range">รายงานพยากรณ์ฝนล่วงหน้า 10 วัน</p>
           </div>
-          <div id="source-comparison" class="source-comparison">
-            <div class="source-chip">
-              <span class="source-chip-label">Open-Meteo</span>
-              <span id="openmeteo-source-status" class="source-chip-value">กำลังโหลด...</span>
-            </div>
-            <div class="source-chip">
-              <span class="source-chip-label">TMD</span>
-              <span id="tmd-source-status" class="source-chip-value">รอการเชื่อมต่อ...</span>
-            </div>
-          </div>
         </div>
 
         <div class="kpi-container">
+          <div class="kpi-context">
+            <span class="kpi-context-label">สรุปของวันที่เลือก</span>
+            <strong id="kpi-selected-date">-</strong>
+          </div>
           <div class="kpi-card glass-card">
             <div class="kpi-icon icon-blue"><i class="fa-solid fa-cloud-rain"></i></div>
             <div class="kpi-info">
@@ -154,7 +148,7 @@
     </main>
 
     <footer class="app-footer glass-card">
-      <p>&copy; 2026 Rain Forecast Dashboard | ข้อมูลอ้างอิงและพยากรณ์จาก Open-Meteo API (Ensemble Forecast)</p>
+      <p>&copy; 2026 Rain Forecast Dashboard | มุมมองสรุปแนวโน้มฝนรายวันและรายชั่วโมง</p>
     </footer>
   </div>
 
