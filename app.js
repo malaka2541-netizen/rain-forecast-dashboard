@@ -33,6 +33,9 @@ const kpiAlertHeadline = document.getElementById("kpi-alert-headline");
 const kpiAlertDetail = document.getElementById("kpi-alert-detail");
 const kpiIntensity = document.getElementById("kpi-intensity");
 const kpiIntensityDetail = document.getElementById("kpi-intensity-detail");
+const kpiAlertMarquee = document.getElementById("kpi-alert-marquee");
+const kpiAlertMarqueeText = document.getElementById("kpi-alert-marquee-text");
+const kpiAlertMarqueeTextClone = document.getElementById("kpi-alert-marquee-text-clone");
 const weatherIconDynamic = document.getElementById("weather-icon-dynamic");
 
 const dayTabsContainer = document.getElementById("day-tabs");
@@ -511,6 +514,20 @@ function getFirstReadableText(value) {
   return typeof value === "string" ? value : "";
 }
 
+function getFirstNonEmptyText(value) {
+  if (Array.isArray(value)) {
+    return value.find(item => typeof item === "string" && item.trim()) || "";
+  }
+  return typeof value === "string" ? value : "";
+}
+
+function normalizeTickerText(text) {
+  return String(text || "")
+    .replace(/\s+/g, " ")
+    .replace(/\s+\|/g, " |")
+    .trim();
+}
+
 function formatWarningEffectRange(text) {
   if (!text) return "";
 
@@ -597,6 +614,10 @@ function normalizeTmdWarning(responseData) {
   const titleEnglish = getFirstReadableText(warning.TitleEnglish);
   const headlineEnglish = getFirstReadableText(warning.HeadlineEnglish);
   const descriptionEnglish = getFirstReadableText(warning.DescriptionEnglish);
+  const titleThai = normalizeTickerText(getFirstNonEmptyText(warning.TitleThai));
+  const headlineThai = normalizeTickerText(getFirstNonEmptyText(warning.HeadlineThai));
+  const descriptionThai = normalizeTickerText(getFirstNonEmptyText(warning.DescriptionThai));
+  const contactThai = normalizeTickerText(getFirstNonEmptyText(warning.ContactThai));
   const label = inferTmdAlertLabel(titleEnglish, headlineEnglish, descriptionEnglish);
   const effectText = formatWarningEffectRange(titleEnglish || headlineEnglish);
   const announceText = formatTmdDateTime(warning.AnnounceDate);
@@ -605,12 +626,18 @@ function normalizeTmdWarning(responseData) {
     effectText,
     announceText ? `อัปเดต ${announceText}` : issueText
   ].filter(Boolean).join(" | ") || "ประกาศเตือนล่าสุดจาก TMD";
+  const tickerText = normalizeTickerText(
+    [titleThai, headlineThai, descriptionThai, contactThai]
+      .filter(Boolean)
+      .join(" | ")
+  );
 
   return {
     label,
     detail,
     severity: inferTmdAlertSeverity(label),
     source: "warning",
+    tickerText,
     url: getFirstReadableText(warning.WebUrlEnglish) || warning.WebUrlThai || "",
     publishedAt: warning.AnnounceDate || warning.EffectStartDate || ""
   };
@@ -621,15 +648,17 @@ function normalizeTmdDailySummary(responseData) {
   if (!dailyForecast) return null;
 
   const overviewEnglish = getFirstReadableText(dailyForecast.OverallDescriptionEnglish);
+  const overviewThai = normalizeTickerText(getFirstNonEmptyText(dailyForecast.OverallDescriptionThai));
   const dateLabel = getFirstReadableText(dailyForecast.Date);
-  if (!overviewEnglish) return null;
+  if (!overviewEnglish && !overviewThai) return null;
 
-  const label = inferTmdAlertLabel("", overviewEnglish, overviewEnglish);
+  const label = inferTmdAlertLabel("", overviewEnglish || overviewThai, overviewEnglish || overviewThai);
   return {
     label,
     detail: dateLabel ? `พยากรณ์ 24 ชม. | ${dateLabel}` : "พยากรณ์ 24 ชม. จาก TMD",
     severity: inferTmdAlertSeverity(label),
-    source: "daily-summary"
+    source: "daily-summary",
+    tickerText: overviewThai
   };
 }
 
@@ -642,7 +671,8 @@ function buildModelAlert(selectedEntries) {
       label: "ไม่มีสัญญาณฝนหนักเด่นชัด",
       detail: "ไม่พบช่วงเสี่ยงฝนหนักจากแบบจำลอง",
       severity: "calm",
-      source: "model"
+      source: "model",
+      tickerText: ""
     };
   }
 
@@ -651,7 +681,8 @@ function buildModelAlert(selectedEntries) {
       label: "เฝ้าระวังพายุฝนฟ้าคะนอง",
       detail: `${formatHourRange(peakWindow.startHour, peakWindow.endHour)} | แบบจำลองคาดฝน ${formatMillimeters(strongestProfile.precipitation)}`,
       severity: "storm",
-      source: "model"
+      source: "model",
+      tickerText: ""
     };
   }
 
@@ -660,7 +691,8 @@ function buildModelAlert(selectedEntries) {
       label: "เฝ้าระวังฝนตกหนัก",
       detail: `${formatHourRange(peakWindow.startHour, peakWindow.endHour)} | แบบจำลองคาดฝน ${formatMillimeters(strongestProfile.precipitation)}`,
       severity: "heavy",
-      source: "model"
+      source: "model",
+      tickerText: ""
     };
   }
 
@@ -669,7 +701,8 @@ function buildModelAlert(selectedEntries) {
       label: "เฝ้าระวังฝนเป็นช่วง",
       detail: `${formatHourRange(peakWindow.startHour, peakWindow.endHour)} | โอกาสฝนสูงสุด ${Math.round(peakWindow.probability * 100)}%`,
       severity: "moderate",
-      source: "model"
+      source: "model",
+      tickerText: ""
     };
   }
 
@@ -677,7 +710,8 @@ function buildModelAlert(selectedEntries) {
     label: "ไม่มีสัญญาณฝนหนักเด่นชัด",
     detail: "ไม่พบช่วงเสี่ยงฝนหนักจากแบบจำลอง",
     severity: "calm",
-    source: "model"
+    source: "model",
+    tickerText: ""
   };
 }
 
@@ -711,6 +745,22 @@ function applyAlertVisualState(severity) {
 
   alertIcon.className = `kpi-icon ${toneMap[severity] || "icon-yellow"}`;
   alertIcon.innerHTML = `<i class="${iconMap[severity] || "fa-solid fa-triangle-exclamation"}"></i>`;
+}
+
+function updateAlertMarquee(alertCard) {
+  if (!kpiAlertMarquee || !kpiAlertMarqueeText || !kpiAlertMarqueeTextClone) return;
+
+  const tickerText = normalizeTickerText(alertCard?.tickerText);
+  if (!tickerText || alertCard?.source === "model") {
+    kpiAlertMarquee.classList.add("hidden");
+    kpiAlertMarqueeText.textContent = "";
+    kpiAlertMarqueeTextClone.textContent = "";
+    return;
+  }
+
+  kpiAlertMarqueeText.textContent = tickerText;
+  kpiAlertMarqueeTextClone.textContent = tickerText;
+  kpiAlertMarquee.classList.remove("hidden");
 }
 
 function updateCurrentConditionsCard() {
@@ -1103,9 +1153,10 @@ function updateKpiAnalytics() {
     kpiPeakDetail.innerText = "ไม่พบข้อมูลรายชั่วโมง";
     kpiAlertHeadline.innerText = "ไม่มีข้อมูลเตือน";
     kpiAlertDetail.innerText = "ไม่พบข้อมูลรายชั่วโมง";
-    kpiIntensity.innerText = "-";
-    kpiIntensityDetail.innerText = "ไม่พบข้อมูลรายชั่วโมง";
+    kpiIntensity.innerText = "จุดฝนแรงสุด";
+    kpiIntensityDetail.innerText = "ยังไม่มีข้อมูลเพียงพอ";
     applyAlertVisualState("calm");
+    updateAlertMarquee(null);
     return;
   }
 
@@ -1121,9 +1172,10 @@ function updateKpiAnalytics() {
   kpiAlertHeadline.innerText = alertCard.label;
   kpiAlertDetail.innerText = alertCard.detail;
   applyAlertVisualState(alertCard.severity);
+  updateAlertMarquee(alertCard);
 
   if (strongestProfile) {
-    kpiIntensity.innerText = strongestProfile.weather.label;
+    kpiIntensity.innerText = `จุดฝนแรงสุด: ${strongestProfile.weather.label}`;
     kpiIntensityDetail.innerText = `${strongestProfile.hour} | ${formatMillimeters(strongestProfile.precipitation)} | ลม ${formatWindKmh(strongestProfile.windGust)}`;
   }
 }
