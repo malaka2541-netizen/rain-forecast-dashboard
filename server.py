@@ -1,5 +1,6 @@
 import http.server
 import json
+import math
 import os
 import socketserver
 import sys
@@ -18,6 +19,16 @@ ENV_PATH = Path(__file__).with_name(".env")
 
 def log_event(message: str) -> None:
     print(message, flush=True)
+
+
+def sanitize_json_value(value: Any) -> Any:
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, dict):
+        return {key: sanitize_json_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [sanitize_json_value(item) for item in value]
+    return value
 
 
 def load_env_file(env_path: Path) -> None:
@@ -116,14 +127,16 @@ def supabase_headers(prefer: str | None = None) -> dict[str, str]:
 
 
 def supabase_request(path: str, payload: Any, prefer: str | None = None, timeout: int = 10) -> Any:
-    payload_size = len(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
+    sanitized_payload = sanitize_json_value(payload)
+    payload_json = json.dumps(sanitized_payload, ensure_ascii=False, allow_nan=False)
+    payload_size = len(payload_json.encode("utf-8"))
     log_event(
         f"Supabase request starting: path={path}, prefer={prefer or '-'}, "
         f"payload_bytes={payload_size}"
     )
     request = urllib.request.Request(
         build_supabase_url(path),
-        data=json.dumps(payload).encode("utf-8"),
+        data=payload_json.encode("utf-8"),
         method="POST",
     )
     for key, value in supabase_headers(prefer).items():
