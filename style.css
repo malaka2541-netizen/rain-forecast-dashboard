@@ -279,7 +279,7 @@ body {
 
 .top-row-grid {
   display: grid;
-  grid-template-columns: 300px 1fr 280px;
+  grid-template-columns: 300px 1fr 320px;
   gap: 1.5rem;
   align-items: stretch;
 }
