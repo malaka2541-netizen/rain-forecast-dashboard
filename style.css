@@ -295,10 +295,23 @@ body {
   /* Combined weather card — fit single column */
   .combined-weather-card {
     padding: 1.25rem;
+    display: block !important;
+    height: auto !important;
   }
 
   .combined-weather-card .weather-art {
+    display: flex !important;
     gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .combined-weather-card .location-details {
+    margin-bottom: 1rem;
+  }
+
+  .combined-weather-card .card-divider {
+    margin-bottom: 1rem;
+    display: block !important;
   }
 
   .weather-icon-wrapper {
@@ -323,11 +336,14 @@ body {
 
   /* Radar — proper height when stacked */
   .radar-card {
-    min-height: 300px;
+    display: block !important;
+    height: 350px !important;
+    min-height: 350px !important;
   }
 
   .radar-card iframe {
-    min-height: 300px;
+    height: 100% !important;
+    min-height: 100% !important;
   }
 
   /* Alert card */
@@ -910,10 +926,14 @@ select:focus {
   /* Combined weather card — shrink icon & text for mobile */
   .combined-weather-card {
     padding: 1rem;
+    display: block !important;
+    height: auto !important;
   }
 
   .combined-weather-card .weather-art {
+    display: flex !important;
     gap: 0.75rem;
+    margin-bottom: 0.75rem;
   }
 
   .weather-icon-wrapper {
@@ -948,7 +968,9 @@ select:focus {
 
   /* Radar — ensure proper height on mobile */
   .radar-card {
-    min-height: 280px;
+    display: block !important;
+    height: 320px !important;
+    min-height: 320px !important;
   }
 
   /* Alert card */
