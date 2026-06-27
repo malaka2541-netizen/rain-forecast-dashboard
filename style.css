@@ -524,19 +524,14 @@ select:focus {
 .kpi-context {
   grid-column: 1 / -1;
   display: flex;
-  align-items: baseline;
-  gap: 0.55rem;
+  align-items: center;
+  justify-content: flex-start;
   padding: 0 0.15rem;
-  color: var(--text-muted);
-}
-
-.kpi-context-label {
-  font-size: 0.78rem;
-  font-weight: 600;
 }
 
 .kpi-context strong {
-  font-size: 0.9rem;
+  font-size: 1.05rem;
+  font-weight: 700;
   color: var(--text-main);
 }
 
