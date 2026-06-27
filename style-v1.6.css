@@ -1441,6 +1441,18 @@ select:focus {
   max-height: 90vh;
   display: flex;
   flex-direction: column;
+  color: var(--text-main);
+  border-radius: 18px;
+  border: 1px solid var(--card-border);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+}
+
+.light-theme .modal-card {
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.dark-theme .modal-card {
+  background: rgba(15, 23, 42, 0.96);
 }
 
 .modal-header {
@@ -1479,6 +1491,11 @@ select:focus {
   padding-left: 2rem;
   font-size: 0.9rem;
   line-height: 1.5;
+  color: var(--text-main);
+}
+
+.guide-steps li strong {
+  color: var(--text-main);
 }
 
 .guide-steps li::before {
@@ -1531,9 +1548,13 @@ select:focus {
 }
 
 .alert-warning {
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.2);
-  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  color: #9a6700;
+}
+
+.dark-theme .alert-warning {
+  color: #fbbf24;
 }
 
 .modal-footer {
