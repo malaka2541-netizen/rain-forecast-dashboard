@@ -1737,18 +1737,18 @@ select:focus {
 /* Forecast Reliability Note */
 .forecast-reliability-note {
   margin-top: 1.5rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 12px;
   padding: 1.25rem;
-  color: #e2e8f0;
+  color: #475569;
 }
 
 .forecast-reliability-note h4 {
   font-size: 1rem;
   font-weight: 600;
   margin: 0 0 1rem 0;
-  color: #f8fafc;
+  color: #1e293b;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -1778,7 +1778,7 @@ select:focus {
 }
 
 .r-level strong {
-  color: #f8fafc;
+  color: #0f172a;
 }
 
 .r-badge {
@@ -1786,7 +1786,8 @@ select:focus {
   align-items: center;
   gap: 0.35rem;
   padding: 0.2rem 0.6rem;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.06);
+  color: #1e293b;
   border-radius: 20px;
   font-weight: 600;
   font-size: 0.8rem;
