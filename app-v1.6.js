@@ -1037,39 +1037,6 @@ async function fetchOpenMeteoForecast(lat, lon) {
     if (!grouped[datePart]) grouped[datePart] = {};
 
     const probability = clampProbability(hourly.precipitation_probability?.[index]);
-    const precipitation = Number(hourly.precipitation?.[index] ?? 0);
-    const weatherCode = Number(hourly.weather_code?.[index] ?? 0);
-    const windSpeed = Number(hourly.wind_speed_10m?.[index] ?? 0);
-    const windGust = Number(hourly.wind_gusts_10m?.[index] ?? 0);
-
-    grouped[datePart][hourKey] = {
-      probability,
-      precipitation: Number.isFinite(precipitation) ? precipitation : 0,
-      weatherCode: Number.isFinite(weatherCode) ? weatherCode : 0,
-      windSpeed: Number.isFinite(windSpeed) ? windSpeed : 0,
-      windGust: Number.isFinite(windGust) ? windGust : 0
-    };
-  });
-
-  const forecastDays = Object.keys(grouped)
-    .sort()
-
-async function fetchOpenMeteoForecast(lat, lon) {
-  const response = await fetch(`/api/forecast/openmeteo?lat=${lat}&lon=${lon}&_t=${Date.now()}`);
-  if (!response.ok) {
-    throw new Error(`Open-Meteo returned status ${response.status}`);
-  }
-
-  const data = await response.json();
-  const hourly = data.hourly;
-  const grouped = {};
-
-  hourly.time.forEach((timeStr, index) => {
-    const [datePart, timePart] = timeStr.split("T");
-    const hourKey = timePart.substring(0, 5);
-    if (!grouped[datePart]) grouped[datePart] = {};
-
-    const probability = clampProbability(hourly.precipitation_probability?.[index]);
     const adjustedProbabilityRaw = hourly.adjusted_precipitation_probability?.[index];
     const adjustedProbability = adjustedProbabilityRaw !== undefined ? clampProbability(adjustedProbabilityRaw) : probability;
 
