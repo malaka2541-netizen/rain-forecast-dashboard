@@ -1751,12 +1751,24 @@ function updateKpiAnalytics() {
 function renderTable() {
   forecastTableBody.innerHTML = "";
   
-  activeForecastData.forEach((day) => {
+  activeForecastData.forEach((day, index) => {
     const row = document.createElement("tr");
     
     // Day cell
     const dateCell = document.createElement("td");
-    dateCell.innerText = formatDateThai(day.date);
+    
+    // Add reliability indicator
+    let indicatorHtml = "";
+    if (index <= 1) {
+      indicatorHtml = `<i class="fa-solid fa-circle-check" style="color: #4ade80; margin-right: 4px; font-size: 0.8rem;" title="ความน่าเชื่อถือ สูง"></i>`;
+    } else if (index <= 4) {
+      indicatorHtml = `<i class="fa-solid fa-circle-exclamation" style="color: #fbbf24; margin-right: 4px; font-size: 0.8rem;" title="ความน่าเชื่อถือ ปานกลาง"></i>`;
+    } else {
+      indicatorHtml = `<i class="fa-solid fa-triangle-exclamation" style="color: #f97316; margin-right: 4px; font-size: 0.8rem;" title="ความน่าเชื่อถือ ต่ำ"></i>`;
+    }
+    
+    dateCell.innerHTML = `${indicatorHtml}${formatDateThai(day.date)}`;
+    dateCell.style.whiteSpace = "nowrap";
     row.appendChild(dateCell);
     
     // Render 24 cells for all hours, each with colspan="1"
