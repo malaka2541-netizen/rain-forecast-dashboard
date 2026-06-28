@@ -74,7 +74,7 @@ def build_openweather_url(lat: str, lon: str) -> str | None:
     if not api_key:
         return None
     return (
-        f"https://api.openweathermap.org/data/2.5/forecast"
+        f"https://api.openweathermap.org/data/4.0/onecall/timeline/1h"
         f"?lat={lat}&lon={lon}&units=metric&appid={api_key}"
     )
 
@@ -261,6 +261,260 @@ def fetch_json_url(url: str, headers: dict[str, str] | None = None, timeout: int
 
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return json.loads(response.read().decode("utf-8"))
+
+
+def redact_query_params(url: str, keys: tuple[str, ...]) -> str:
+    parsed = urllib.parse.urlparse(url)
+    query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+    for key in keys:
+        if key in query:
+            query[key] = ["***"]
+    redacted_query = urllib.parse.urlencode(query, doseq=True)
+    return urllib.parse.urlunparse(parsed._replace(query=redacted_query))
+
+
+def openweather_timezone_name(payload: dict[str, Any]) -> str | None:
+    for key in ("timezone", "tz", "timezone_name"):
+        value = payload.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return None
+
+
+def openweather_timezone_offset(payload: dict[str, Any]) -> int:
+    for key in ("timezone_offset", "tz_offset", "utc_offset_seconds"):
+        value = payload.get(key)
+        if value is None:
+            continue
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            continue
+    return 0
+
+
+def openweather_hourly_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    for key in ("hourly", "data", "list"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            return value
+    return []
+
+
+def openweather_next_url(payload: dict[str, Any], current_url: str) -> str | None:
+    candidate = payload.get("next")
+    if not candidate and isinstance(payload.get("links"), dict):
+        candidate = payload["links"].get("next")
+    if not candidate and isinstance(payload.get("pagination"), dict):
+        candidate = payload["pagination"].get("next")
+    if not isinstance(candidate, str) or not candidate:
+        return None
+
+    next_url = urllib.parse.urljoin(current_url, candidate)
+    current_parts = urllib.parse.urlparse(current_url)
+    next_parts = urllib.parse.urlparse(next_url)
+    current_query = urllib.parse.parse_qs(current_parts.query, keep_blank_values=True)
+    next_query = urllib.parse.parse_qs(next_parts.query, keep_blank_values=True)
+
+    # OpenWeather pagination links may omit the original request options such as units/appid.
+    for key, value in current_query.items():
+        if key not in next_query:
+            next_query[key] = value
+
+    merged_query = urllib.parse.urlencode(next_query, doseq=True)
+    return urllib.parse.urlunparse(next_parts._replace(query=merged_query))
+
+
+def openweather_item_dt(item: dict[str, Any]) -> int | None:
+    for key in ("dt", "timestamp"):
+        value = item.get(key)
+        if value is None:
+            continue
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            continue
+
+    for key in ("time", "forecast_time", "start"):
+        value = item.get(key)
+        if not isinstance(value, str) or not value:
+            continue
+        parsed = parse_iso_datetime(value)
+        if parsed:
+            return int(parsed.timestamp())
+    return None
+
+
+def openweather_precipitation_mm(item: dict[str, Any]) -> float | None:
+    rain = item.get("rain")
+    if isinstance(rain, dict):
+        for key in ("1h", "total", "amount"):
+            value = rain.get(key)
+            if value is not None:
+                try:
+                    return float(value)
+                except (TypeError, ValueError):
+                    pass
+    elif rain is not None:
+        try:
+            return float(rain)
+        except (TypeError, ValueError):
+            pass
+
+    precipitation = item.get("precipitation")
+    if isinstance(precipitation, dict):
+        for key in ("1h", "total", "amount"):
+            value = precipitation.get(key)
+            if value is not None:
+                try:
+                    return float(value)
+                except (TypeError, ValueError):
+                    pass
+    elif precipitation is not None:
+        try:
+            return float(precipitation)
+        except (TypeError, ValueError):
+            pass
+
+    for key in ("rain_1h", "precipitation_mm"):
+        value = item.get(key)
+        if value is not None:
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                pass
+    return None
+
+
+def normalize_temperature_celsius(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return None
+
+    # Defensive normalization in case paginated OpenWeather links drop `units=metric`
+    # and a temperature-like value returns in Kelvin.
+    if numeric > 170:
+        return round(numeric - 273.15, 2)
+    return numeric
+
+
+def normalize_openweather_item(item: dict[str, Any]) -> dict[str, Any] | None:
+    dt_value = openweather_item_dt(item)
+    if dt_value is None:
+        return None
+
+    pop_value = item.get("pop")
+    if pop_value is None:
+        pop_value = item.get("probability_of_precipitation")
+    if pop_value is None:
+        pop_value = item.get("precipitation_probability")
+
+    pop = None
+    if pop_value is not None:
+        try:
+            pop = float(pop_value)
+        except (TypeError, ValueError):
+            pop = None
+    if pop is not None and pop > 1:
+        pop = pop / 100.0
+
+    weather = item.get("weather")
+    if isinstance(weather, dict):
+        weather = [weather]
+    if not isinstance(weather, list):
+        weather = []
+
+    wind_speed = item.get("wind_speed")
+    if wind_speed is None and isinstance(item.get("wind"), dict):
+        wind_speed = item["wind"].get("speed")
+
+    wind_gust = item.get("wind_gust")
+    if wind_gust is None and isinstance(item.get("wind"), dict):
+        wind_gust = item["wind"].get("gust")
+
+    normalized = {
+        "dt": dt_value,
+        "pop": pop if pop is not None else 0.0,
+        "rain": {"1h": openweather_precipitation_mm(item)},
+        "weather": weather,
+        "wind_speed": wind_speed,
+        "wind_gust": wind_gust,
+        "dew_point": normalize_temperature_celsius(item.get("dew_point")),
+        "pressure": item.get("pressure") or item.get("surface_pressure"),
+        "raw": item,
+    }
+    return normalized
+
+
+def fetch_openweather_payload(lat: str, lon: str, timeout: int = 20, max_records: int = 192) -> dict[str, Any]:
+    url = build_openweather_url(lat, lon)
+    if not url:
+        raise RuntimeError("OPENWEATHER_API_KEY is missing")
+
+    pages_fetched = 0
+    current_url = url
+    merged_items: list[dict[str, Any]] = []
+    timezone_name: str | None = None
+    timezone_offset = 0
+    lat_value: float | None = None
+    lon_value: float | None = None
+
+    while current_url and len(merged_items) < max_records:
+        pages_fetched += 1
+        payload = fetch_json_url(current_url, timeout=timeout)
+
+        timezone_name = timezone_name or openweather_timezone_name(payload)
+        timezone_offset = openweather_timezone_offset(payload) or timezone_offset
+
+        if lat_value is None:
+            try:
+                lat_value = float(payload.get("lat"))
+            except (TypeError, ValueError):
+                lat_value = float(lat)
+        if lon_value is None:
+            try:
+                lon_value = float(payload.get("lon"))
+            except (TypeError, ValueError):
+                lon_value = float(lon)
+
+        for raw_item in openweather_hourly_items(payload):
+            if not isinstance(raw_item, dict):
+                continue
+            normalized = normalize_openweather_item(raw_item)
+            if normalized:
+                merged_items.append(normalized)
+
+        next_url = openweather_next_url(payload, current_url)
+        if not next_url or next_url == current_url:
+            break
+        current_url = next_url
+
+    deduped: dict[int, dict[str, Any]] = {}
+    for item in merged_items:
+        dt_value = item["dt"]
+        if dt_value not in deduped:
+            deduped[dt_value] = item
+
+    hourly = [deduped[key] for key in sorted(deduped.keys())][:max_records]
+    return {
+        "lat": lat_value if lat_value is not None else float(lat),
+        "lon": lon_value if lon_value is not None else float(lon),
+        "timezone": timezone_name or "UTC",
+        "timezone_offset": timezone_offset,
+        "hourly": hourly,
+        "meta": {
+            "provider": "openweather",
+            "api_version": "onecall-4.0",
+            "endpoint": "timeline/1h",
+            "pages_fetched": pages_fetched,
+            "records_returned": len(hourly),
+            "requested_at": utc_now_iso(),
+            "source_url": redact_query_params(url, ("appid",)),
+        },
+    }
 
 
 def build_openmeteo_run_record(lat: str, lon: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -1001,9 +1255,12 @@ def collect_openweather_forecast_snapshot(lat: str | None = None, lon: str | Non
     if not openweather_url:
         return {"success": False, "source": "openweather", "error": "OPENWEATHER_API_KEY is missing"}
     
-    log_event(f"Collecting OpenWeather snapshot for backtest: {openweather_url}")
+    log_event(
+        "Collecting OpenWeather snapshot for backtest: "
+        f"{redact_query_params(openweather_url, ('appid',))}"
+    )
     try:
-        payload = fetch_json_url(openweather_url, timeout=20)
+        payload = fetch_openweather_payload(target_lat, target_lon, timeout=20)
         log_openweather_snapshot(target_lat, target_lon, payload)
 
         hourly_count = len(payload.get("hourly") or [])
@@ -1058,10 +1315,8 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
             
             # Apply probability calibration (Shadow Mode) if OpenWeather is configured
             try:
-                ow_url = build_openweather_url(lat, lon)
-                if ow_url:
-                    ow_body = self.fetch_json(ow_url, timeout=15)
-                    ow_payload = json.loads(ow_body.decode("utf-8"))
+                if build_openweather_url(lat, lon):
+                    ow_payload = fetch_openweather_payload(lat, lon, timeout=15, max_records=72)
                     payload = self.apply_probability_calibration(payload, ow_payload)
             except Exception as e:
                 log_event(f"Could not apply OpenWeather calibration: {e}")
@@ -1127,10 +1382,12 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
             )
             return
 
-        log_event(f"Proxying OpenWeather request to: {openweather_url}")
+        log_event(
+            "Proxying OpenWeather request to: "
+            f"{redact_query_params(openweather_url, ('appid',))}"
+        )
         try:
-            response_body = self.fetch_json(openweather_url, timeout=20)
-            payload = json.loads(response_body.decode("utf-8"))
+            payload = fetch_openweather_payload(lat, lon, timeout=20)
             self.respond_json(payload)
             log_openweather_snapshot(lat, lon, payload)
             log_event("OpenWeather request completed successfully.")
