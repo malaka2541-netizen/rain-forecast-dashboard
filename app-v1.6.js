@@ -2179,3 +2179,177 @@ function showLoading(text) {
 function hideLoading() {
   loadingOverlay.classList.add("hidden");
 }
+
+// ==========================================
+// Client-side Radar Scanner (Nowcast Widget)
+// ==========================================
+
+const NOWCAST_ZOOM = 9;
+const TILE_SIZE = 256;
+const KM_PER_PIXEL = 0.3; // Approx at lat 14 for Zoom 9
+
+function lon2px(lon, zoom) { return ((lon + 180) / 360 * Math.pow(2, zoom)) * TILE_SIZE; }
+function lat2px(lat, zoom) { return ((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom)) * TILE_SIZE; }
+
+async function startRadarScanner(lat, lon) {
+  const widget = document.getElementById("nowcast-widget");
+  const badge = document.getElementById("nowcast-status-badge");
+  const message = document.getElementById("nowcast-message");
+  
+  if (!widget) return;
+  widget.classList.remove("hidden");
+  
+  badge.className = "nowcast-badge loading";
+  badge.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังสแกน...';
+  message.innerHTML = "กำลังเชื่อมต่อดาวเทียมและเรดาร์เพื่อค้นหากลุ่มฝนในรัศมี 30 กม...";
+
+  try {
+    const response = await fetch("https://api.rainviewer.com/public/weather-maps.json");
+    const data = await response.json();
+    
+    const past = data.radar.past;
+    if (past.length < 2) throw new Error("Not enough radar data");
+    
+    // Get last two frames
+    const frameT = past[past.length - 1]; // Latest
+    const frameT_minus = past[past.length - 2]; // Previous
+    const host = data.host;
+    
+    const scanT = await scanRadarFrame(host, frameT.path, lat, lon);
+    const scanT_minus = await scanRadarFrame(host, frameT_minus.path, lat, lon);
+    
+    analyzeStormMovement(scanT, scanT_minus, frameT.time - frameT_minus.time);
+    
+  } catch (err) {
+    console.error("Radar scanner error:", err);
+    badge.className = "nowcast-badge danger";
+    badge.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> สแกนล้มเหลว';
+    message.innerHTML = "ไม่สามารถเชื่อมต่อข้อมูลเรดาร์ได้ในขณะนี้";
+  }
+}
+
+async function scanRadarFrame(host, path, lat, lon) {
+  const cx = lon2px(lon, NOWCAST_ZOOM);
+  const cy = lat2px(lat, NOWCAST_ZOOM);
+  const tx = Math.floor(cx / TILE_SIZE);
+  const ty = Math.floor(cy / TILE_SIZE);
+  
+  const offsetX = cx - (tx * TILE_SIZE) + TILE_SIZE;
+  const offsetY = cy - (ty * TILE_SIZE) + TILE_SIZE;
+  
+  const canvas = document.getElementById("radar-scanner-canvas") || document.createElement("canvas");
+  canvas.width = TILE_SIZE * 3;
+  canvas.height = TILE_SIZE * 3;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  const promises = [];
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      const tileUrl = `${host}${path}/256/${NOWCAST_ZOOM}/${tx + dx}/${ty + dy}/2/1_1.png`;
+      promises.push(loadImageToCanvas(ctx, tileUrl, (dx + 1) * TILE_SIZE, (dy + 1) * TILE_SIZE));
+    }
+  }
+  
+  await Promise.all(promises);
+  
+  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  let nearestDist = Infinity;
+  let nearestDx = 0;
+  let nearestDy = 0;
+  
+  const maxRadius = 100; // ~30km
+  
+  for (let y = 0; y < canvas.height; y++) {
+    for (let x = 0; x < canvas.width; x++) {
+      const idx = (y * canvas.width + x) * 4;
+      const r = imgData[idx];
+      const g = imgData[idx+1];
+      const b = imgData[idx+2];
+      const a = imgData[idx+3];
+      
+      // If pixel is colored (has rain)
+      if (a > 50 && (r > 50 || g > 50 || b > 50)) {
+        const dx = x - offsetX;
+        const dy = y - offsetY;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        
+        if (dist < nearestDist && dist <= maxRadius) {
+          nearestDist = dist;
+          nearestDx = dx;
+          nearestDy = dy;
+        }
+      }
+    }
+  }
+  
+  return { dist: nearestDist, dx: nearestDx, dy: nearestDy };
+}
+
+function loadImageToCanvas(ctx, url, x, y) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.onload = () => {
+      ctx.drawImage(img, x, y);
+      resolve();
+    };
+    img.onerror = () => resolve();
+    img.src = url;
+  });
+}
+
+function getDirectionName(dx, dy) {
+  const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+  if (angle > -22.5 && angle <= 22.5) return "ตะวันออก";
+  if (angle > 22.5 && angle <= 67.5) return "ตะวันออกเฉียงใต้";
+  if (angle > 67.5 && angle <= 112.5) return "ใต้";
+  if (angle > 112.5 && angle <= 157.5) return "ตะวันตกเฉียงใต้";
+  if (angle > 157.5 || angle <= -157.5) return "ตะวันตก";
+  if (angle > -157.5 && angle <= -112.5) return "ตะวันตกเฉียงเหนือ";
+  if (angle > -112.5 && angle <= -67.5) return "เหนือ";
+  if (angle > -67.5 && angle <= -22.5) return "ตะวันออกเฉียงเหนือ";
+  return "ไม่ทราบทิศ";
+}
+
+function analyzeStormMovement(scanT, scanT_minus, timeDiffSec) {
+  const badge = document.getElementById("nowcast-status-badge");
+  const message = document.getElementById("nowcast-message");
+  
+  if (scanT.dist === Infinity) {
+    badge.className = "nowcast-badge safe";
+    badge.innerHTML = '<i class="fa-solid fa-shield-halved"></i> ปลอดโปร่ง';
+    message.innerHTML = "ไม่พบกลุ่มฝนในรัศมี 30 กิโลเมตร <strong>(สถานการณ์ปกติ)</strong>";
+    return;
+  }
+  
+  const currentKm = (scanT.dist * KM_PER_PIXEL).toFixed(1);
+  const dirName = getDirectionName(scanT.dx, scanT.dy);
+  
+  if (scanT_minus.dist === Infinity || scanT_minus.dist === scanT.dist) {
+    badge.className = "nowcast-badge warning";
+    badge.innerHTML = '<i class="fa-solid fa-cloud-showers-heavy"></i> พบกลุ่มฝน';
+    message.innerHTML = `ตรวจพบกลุ่มฝนอยู่ทาง <strong>ทิศ${dirName}</strong> ห่างออกไปประมาณ <strong>${currentKm} กม.</strong> (ยังประเมินทิศทางการเคลื่อนที่ไม่ได้)`;
+    return;
+  }
+  
+  const diffPixels = scanT_minus.dist - scanT.dist;
+  const diffKm = diffPixels * KM_PER_PIXEL;
+  
+  if (diffPixels > 2) { 
+    const speedKmH = Math.max(5, (diffKm / (timeDiffSec / 3600))).toFixed(0);
+    const timeToHit = Math.max(1, ((scanT.dist * KM_PER_PIXEL) / speedKmH * 60)).toFixed(0);
+    
+    badge.className = "nowcast-badge danger";
+    badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> พายุกำลังเข้า';
+    message.innerHTML = `กลุ่มฝนกำลังพัดมาจาก <strong>ทิศ${dirName}</strong> ห่างออกไป <strong>${currentKm} กม.</strong><br>เคลื่อนตัวด้วยความเร็วประมาณ ${speedKmH} กม./ชม. <strong style="color:#f87171;">คาดว่าจะถึงพิกัดนี้ในอีก ${timeToHit} นาที!</strong>`;
+  } else if (diffPixels < -2) { 
+    badge.className = "nowcast-badge safe";
+    badge.innerHTML = '<i class="fa-solid fa-arrow-right-from-bracket"></i> พายุพัดผ่านไปแล้ว';
+    message.innerHTML = `กลุ่มฝนอยู่ทาง <strong>ทิศ${dirName}</strong> (ห่าง ${currentKm} กม.) <strong>และกำลังเคลื่อนตัวออกห่างจากคุณ</strong>`;
+  } else { 
+    badge.className = "nowcast-badge warning";
+    badge.innerHTML = '<i class="fa-solid fa-cloud-showers-heavy"></i> พบกลุ่มฝน';
+    message.innerHTML = `พบกลุ่มฝนทาง <strong>ทิศ${dirName}</strong> (ห่าง ${currentKm} กม.) <strong>กลุ่มฝนค่อนข้างทรงตัวในพื้นที่ ไม่ได้เคลื่อนตัวเข้าหาอย่างชัดเจน</strong>`;
+  }
+}

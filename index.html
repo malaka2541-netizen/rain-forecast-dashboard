@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-  <link rel="stylesheet" href="style-v1.6.css?v=4">
+  <link rel="stylesheet" href="style-v1.6.css?v=5">
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -119,6 +119,19 @@
           </div>
         </div>
       </div>
+
+      <!-- Nowcast Widget -->
+      <div id="nowcast-widget" class="nowcast-card glass-card hidden">
+        <div class="nowcast-header">
+          <h2><i class="fa-solid fa-satellite-dish"></i> เรดาร์สแกนเนอร์ (สถานการณ์ปัจจุบัน)</h2>
+          <span id="nowcast-status-badge" class="nowcast-badge loading"><i class="fa-solid fa-spinner fa-spin"></i> กำลังสแกน...</span>
+        </div>
+        <div class="nowcast-body">
+          <p id="nowcast-message">กำลังเชื่อมต่อดาวเทียมและเรดาร์เพื่อค้นหากลุ่มฝนในรัศมี 30 กม...</p>
+        </div>
+        <canvas id="radar-scanner-canvas" style="display:none;"></canvas>
+      </div>
+
 
       <div class="chart-card glass-card">
         <div class="chart-header">
@@ -391,6 +404,6 @@
     </div>
   </div>
 
-  <script src="app-v1.6.js?v=4"></script>
+  <script src="app-v1.6.js?v=5"></script>
 </body>
 </html>
