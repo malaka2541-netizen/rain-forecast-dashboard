@@ -58,6 +58,7 @@ const accuracyAvgError = document.getElementById("accuracy-avg-error");
 const accuracyConfidence = document.getElementById("accuracy-confidence");
 const accuracySummaryText = document.getElementById("accuracy-summary-text");
 const accuracyPeriodText = document.getElementById("accuracy-period-text");
+const accuracyUpdatedText = document.getElementById("accuracy-updated-text");
 const accuracyProbabilityBreakdown = document.getElementById("accuracy-probability-breakdown");
 const accuracyIntensityBreakdown = document.getElementById("accuracy-intensity-breakdown");
 const accuracyConfidenceNotes = document.getElementById("accuracy-confidence-notes");
@@ -1151,6 +1152,7 @@ async function openAccuracyModal() {
     accuracyConfidence.textContent = getBacktestConfidenceLabel(Number(summary.total_checks || 0), confidenceFlags);
     accuracySummaryText.textContent = buildBacktestSummaryNarrative(summary, confidenceFlags);
     accuracyPeriodText.textContent = `ช่วงข้อมูลตรวจจริง: ${formatBacktestDateTime(summary.observed_start)} ถึง ${formatBacktestDateTime(summary.observed_end)}`;
+    accuracyUpdatedText.textContent = `อัปเดตล่าสุด: ${formatBacktestDateTime(summary.latest_updated_at)}`;
     accuracyProbabilityBreakdown.innerHTML = buildBreakdownHtml(payload.probability_breakdown, getProbabilityBucketThai);
     accuracyIntensityBreakdown.innerHTML = buildBreakdownHtml(payload.rain_intensity_breakdown, getIntensityThai);
 

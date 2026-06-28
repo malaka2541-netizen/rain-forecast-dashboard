@@ -445,7 +445,7 @@ def fetch_verification_results(limit: int = 5000) -> list[dict[str, Any]]:
     return supabase_get(
         "/rest/v1/verification_results"
         "?select=station_code,observed_time,observed_rainfall_mm,did_rain,"
-        "rain_intensity_class,probability_bucket,absolute_error_mm"
+        "rain_intensity_class,probability_bucket,absolute_error_mm,created_at"
         f"&order=observed_time.desc&limit={limit}",
         timeout=20,
     ) or []
@@ -706,8 +706,10 @@ def summarize_backtest_results() -> dict[str, Any]:
 
     summary = summarize_group(rows)
     observed_times = [row["observed_time"] for row in rows if row.get("observed_time")]
+    updated_times = [row["created_at"] for row in rows if row.get("created_at")]
     summary["observed_start"] = min(observed_times) if observed_times else None
     summary["observed_end"] = max(observed_times) if observed_times else None
+    summary["latest_updated_at"] = max(updated_times) if updated_times else None
 
     probability_breakdown = {
         key: summarize_group(group_rows)
