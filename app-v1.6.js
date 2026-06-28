@@ -2263,7 +2263,7 @@ async function scanRadarFrame(host, path, lat, lon) {
   let nearestDx = 0;
   let nearestDy = 0;
   
-  const maxRadius = 100; // ~30km
+  const maxRadius = 120; // ~36km
   
   for (let y = 0; y < canvas.height; y++) {
     for (let x = 0; x < canvas.width; x++) {
@@ -2273,8 +2273,10 @@ async function scanRadarFrame(host, path, lat, lon) {
       const b = imgData[idx+2];
       const a = imgData[idx+3];
       
-      // If pixel is colored (has rain)
-      if (a > 50 && (r > 50 || g > 50 || b > 50)) {
+      // Filter out light rain (cyan/blue) and noise
+      const isSignificantRain = (r > 150 || g > 150) && (b < 150 || r > 150);
+      
+      if (a > 50 && isSignificantRain) {
         const dx = x - offsetX;
         const dy = y - offsetY;
         const dist = Math.sqrt(dx*dx + dy*dy);
