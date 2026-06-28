@@ -2108,9 +2108,10 @@ async function fetchDashboardData() {
       }
     }
 
-    const [openMeteoResult, tmdResult] = await Promise.allSettled([
+    const [openMeteoResult, tmdResult, openWeatherResult] = await Promise.allSettled([
       fetchOpenMeteoForecast(currentLat, currentLon),
-      fetchTmdForecastSummary(currentLat, currentLon)
+      fetchTmdForecastSummary(currentLat, currentLon),
+      fetchOpenWeatherForecast(currentLat, currentLon)
     ]);
 
     if (openMeteoResult.status !== "fulfilled") {
@@ -2145,6 +2146,14 @@ async function fetchDashboardData() {
         : "เชื่อมต่อ TMD ไม่สำเร็จในรอบนี้";
       tmdAdvisoryState = null;
       console.warn("TMD cross-check unavailable:", tmdResult.reason);
+    }
+
+    if (openWeatherResult && openWeatherResult.status === "fulfilled") {
+      sourceComparisonState.openWeatherText = openWeatherResult.value.statusText;
+      sourceComparisonState.openWeatherData = openWeatherResult.value.forecastDays;
+    } else {
+      sourceComparisonState.openWeatherText = (openWeatherResult && openWeatherResult.reason && openWeatherResult.reason.message) ? openWeatherResult.reason.message : "ล้มเหลว";
+      sourceComparisonState.openWeatherData = null;
     }
 
     updateKpiAnalytics();
