@@ -1,4 +1,5 @@
 import http.server
+import hmac
 import json
 import math
 import os
@@ -974,15 +975,12 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
         if auth_header.startswith("Bearer "):
             provided_token = auth_header[7:].strip()
 
-        if not provided_token:
-            provided_token = query_params.get("token", [""])[0].strip()
-
-        if provided_token != expected_token:
+        if not provided_token or not hmac.compare_digest(provided_token, expected_token):
             self.respond_json(
                 {
                     "error": "Unauthorized",
                     "source": "backtest-cycle",
-                    "message": "Missing or invalid backtest cron token.",
+                    "message": "Missing or invalid bearer token.",
                 },
                 status=401,
             )
@@ -1091,9 +1089,14 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if parsed_url.path in run_backtest_cycle_paths:
-            if not self.authorize_backtest_cron(query_params):
-                return
-            self.handle_run_backtest_cycle(query_params)
+            self.respond_json(
+                {
+                    "error": "Method Not Allowed",
+                    "source": "backtest-cycle",
+                    "message": "Use POST with Authorization: Bearer <token>.",
+                },
+                status=405,
+            )
             return
 
         if parsed_url.path in backtest_summary_paths:
@@ -1101,6 +1104,28 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         super().do_GET()
+
+    def do_POST(self):
+        parsed_url = urllib.parse.urlparse(self.path)
+        query_params = urllib.parse.parse_qs(parsed_url.query)
+        run_backtest_cycle_paths = {
+            "/api/backtest/run-cycle",
+            "/api/forecast/backtest/run-cycle",
+        }
+
+        if parsed_url.path in run_backtest_cycle_paths:
+            if not self.authorize_backtest_cron(query_params):
+                return
+            self.handle_run_backtest_cycle(query_params)
+            return
+
+        self.respond_json(
+            {
+                "error": "Method Not Allowed",
+                "message": "POST is not supported for this path.",
+            },
+            status=405,
+        )
 
 
 class ThreadingReusableTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):

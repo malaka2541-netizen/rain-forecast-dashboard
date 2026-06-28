@@ -81,6 +81,7 @@ Notes:
 
 - GitHub scheduled workflows are a good free option, but they are not as strict as paid cron infrastructure.
 - The workflow can also be started manually with **Run workflow** from the GitHub Actions UI.
+- The protected backtest trigger now expects `POST` and `Authorization: Bearer <token>`.
 
 ## Daily workflow
 

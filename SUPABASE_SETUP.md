@@ -115,6 +115,7 @@ Recommended setup:
    - `BACKTEST_TRIGGER_URL=https://rain-forecast-dashboard-0dub.onrender.com/api/backtest/run-cycle`
    - `BACKTEST_CRON_TOKEN=<same-secret-token>`
 3. Let GitHub Actions run every hour at minute `07`
+4. The trigger endpoint now accepts `POST` only and requires `Authorization: Bearer <token>`
 
 ## 5. Verify logging
 
