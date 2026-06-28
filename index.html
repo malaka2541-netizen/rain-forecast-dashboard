@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-  <link rel="stylesheet" href="style-v1.6.css?v=2">
+  <link rel="stylesheet" href="style-v1.6.css?v=3">
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -172,6 +172,24 @@
             </thead>
             <tbody id="forecast-table-body"></tbody>
           </table>
+        </div>
+        
+        <div class="forecast-reliability-note">
+          <h4><i class="fa-solid fa-circle-info"></i> ระดับความน่าเชื่อถือของข้อมูล (อ้างอิงตามระยะเวลาล่วงหน้า)</h4>
+          <div class="reliability-levels">
+            <div class="r-level high">
+              <span class="r-badge"><i class="fa-solid fa-circle-check" style="color: #4ade80;"></i> 1-2 วัน</span>
+              <p>ความน่าเชื่อถือ <strong>สูง</strong>: ข้อมูลค่อนข้างนิ่ง สามารถใช้ตัดสินใจและเตรียมการหน้างานได้</p>
+            </div>
+            <div class="r-level medium">
+              <span class="r-badge"><i class="fa-solid fa-circle-exclamation" style="color: #fbbf24;"></i> 3-5 วัน</span>
+              <p>ความน่าเชื่อถือ <strong>ปานกลาง</strong>: ใช้ดู <strong>"แนวโน้ม"</strong> เพื่อวางแผนงานคร่าวๆ หรือจัดเตรียมอุปกรณ์ล่วงหน้า</p>
+            </div>
+            <div class="r-level low">
+              <span class="r-badge"><i class="fa-solid fa-triangle-exclamation" style="color: #f97316;"></i> 6-10 วัน</span>
+              <p>ความน่าเชื่อถือ <strong>ต่ำ</strong>: เป็นเพียงการคาดเดาระยะยาว ข้อมูลพลิกผันได้เสมอ <strong>ไม่ควรใช้ตัดสินใจเรื่องสำคัญ</strong></p>
+            </div>
+          </div>
         </div>
       </div>
     </main>
