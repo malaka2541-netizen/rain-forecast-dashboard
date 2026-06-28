@@ -607,7 +607,27 @@ function openComparisonModal(dateStr, hour) {
   const owDay = sourceComparisonState.openWeatherData ? sourceComparisonState.openWeatherData.find(d => d.date === dateStr) : null;
   
   const omEntry = omDay ? omDay.values[hour] : null;
-  const owEntry = owDay ? owDay.values[hour] : null;
+  let owEntry = owDay ? owDay.values[hour] : null;
+  let owHourUsed = hour;
+
+  if (owDay && !owEntry) {
+    const targetHourNum = parseInt(hour.split(':')[0], 10);
+    const availableHours = Object.keys(owDay.values);
+    if (availableHours.length > 0) {
+      let closestHour = availableHours[0];
+      let minDiff = Infinity;
+      for (const avHour of availableHours) {
+        const hNum = parseInt(avHour.split(':')[0], 10);
+        const diff = Math.abs(hNum - targetHourNum);
+        if (diff < minDiff) {
+          minDiff = diff;
+          closestHour = avHour;
+        }
+      }
+      owEntry = owDay.values[closestHour];
+      owHourUsed = closestHour;
+    }
+  }
 
   comparisonTimeTitle.textContent = `เปรียบเทียบข้อมูล: ${formatDateThai(dateStr)} ${hour} น.`;
 
