@@ -785,6 +785,7 @@ select:focus {
   height: calc(100% - 60px); /* Leaves the bottom 60px timeline/play button interactive */
   z-index: 10;
   background: transparent;
+  pointer-events: none; /* Allow interaction with iframe */
 }
 
 
