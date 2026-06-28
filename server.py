@@ -74,8 +74,8 @@ def build_openweather_url(lat: str, lon: str) -> str | None:
     if not api_key:
         return None
     return (
-        f"https://api.openweathermap.org/data/3.0/onecall"
-        f"?lat={lat}&lon={lon}&exclude=minutely&units=metric&appid={api_key}"
+        f"https://api.openweathermap.org/data/2.5/forecast"
+        f"?lat={lat}&lon={lon}&units=metric&appid={api_key}"
     )
 
 

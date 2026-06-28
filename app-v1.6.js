@@ -1098,7 +1098,7 @@ async function fetchOpenWeatherForecast(lat, lon) {
   }
 
   const data = await response.json();
-  const hourly = data.hourly || [];
+  const hourly = data.list || data.hourly || [];
   const grouped = {};
 
   hourly.forEach((item) => {
@@ -1112,10 +1112,19 @@ async function fetchOpenWeatherForecast(lat, lon) {
     if (!grouped[dateStr]) grouped[dateStr] = {};
 
     const probability = item.pop !== undefined ? clampProbability(item.pop * 100) : null;
-    const precipitation = Number(item.rain?.["1h"] ?? 0);
+    const precipitation = Number(item.rain?.["3h"] ?? item.rain?.["1h"] ?? 0);
     const weatherCode = item.weather && item.weather[0] ? item.weather[0].id : 0; // Keeping raw code for now, mapping can be done later if needed
-    const windSpeed = Number(item.wind_speed ?? 0) * 3.6; // m/s to km/h
-    const windGust = Number(item.wind_gust ?? 0) * 3.6; // m/s to km/h
+    
+    let windSpeed = 0;
+    let windGust = 0;
+    
+    if (item.wind) {
+       windSpeed = Number(item.wind.speed ?? 0) * 3.6;
+       windGust = Number(item.wind.gust ?? 0) * 3.6;
+    } else {
+       windSpeed = Number(item.wind_speed ?? 0) * 3.6;
+       windGust = Number(item.wind_gust ?? 0) * 3.6;
+    }
 
     grouped[dateStr][hourKey] = {
       probability,
