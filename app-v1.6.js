@@ -2101,11 +2101,6 @@ async function fetchDashboardData() {
     // Sync radar map with current coordinates
     updateWindyRadar(currentLat, currentLon);
     
-    // Start Nowcast Scanner
-    if (typeof startRadarScanner === 'function') {
-      startRadarScanner(currentLat, currentLon);
-    }
-    
     loadDataAndRefresh();
 
     if (tmdResult.status === "fulfilled") {
