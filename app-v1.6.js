@@ -2043,7 +2043,7 @@ function updateWindyRadar(lat, lon) {
     + `?type=map&location=coordinates`
     + `&lat=${lat}&lon=${lon}`
     + `&detailLat=${lat}&detailLon=${lon}`
-    + `&zoom=10`
+    + `&zoom=8`
     + `&level=surface`
     + `&overlay=radar`
     + `&product=radar`
