@@ -624,8 +624,11 @@ function openComparisonModal(dateStr, hour) {
           closestHour = avHour;
         }
       }
-      owEntry = owDay.values[closestHour];
-      owHourUsed = closestHour;
+      // Only use it if it's within 3 hours difference
+      if (minDiff <= 3) {
+        owEntry = owDay.values[closestHour];
+        owHourUsed = closestHour;
+      }
     }
   }
 
@@ -647,9 +650,10 @@ function openComparisonModal(dateStr, hour) {
   
   if (owEntry) {
     const weather = getWeatherDetails(owEntry.weatherCode, owEntry.precipitation, owEntry.windGust, owEntry.probability);
+    const timeNote = (owHourUsed !== hour) ? ` <span style="font-size: 0.8rem; color: #64748b;">(เวลาพยากรณ์ใกล้เคียง: ${owHourUsed} น.)</span>` : '';
     html += `
       <div style="padding: 1rem; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px;">
-        <h4 style="margin: 0 0 0.5rem 0; color: #f59e0b;">OpenWeather (เปรียบเทียบ)</h4>
+        <h4 style="margin: 0 0 0.5rem 0; color: #f59e0b;">OpenWeather (เปรียบเทียบ)${timeNote}</h4>
         <div>โอกาสฝน: ${Math.round(owEntry.probability * 100)}%</div>
         <div>ปริมาณฝนคาดการณ์: ${formatMillimeters(owEntry.precipitation)}</div>
         <div>สภาพอากาศ: ${weather.label}</div>
