@@ -18,5 +18,32 @@ services:
         sync: false
       - key: SUPABASE_DB_SCHEMA
         value: public
+      - key: BACKTEST_FORECAST_LAT
+        value: 13.7563
+      - key: BACKTEST_FORECAST_LON
+        value: 100.5018
+      - key: OBSERVATION_PROVINCES
+        value: Bangkok,Samut Prakan,Nonthaburi,Pathum Thani,Nakhon Pathom,Samut Sakhon
+  - type: cron
+    name: rain-forecast-backtest-hourly
+    runtime: python
+    schedule: "5 * * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python server.py run-backtest-cycle
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: TMD_API_TOKEN
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_DB_SCHEMA
+        value: public
+      - key: BACKTEST_FORECAST_LAT
+        value: 13.7563
+      - key: BACKTEST_FORECAST_LON
+        value: 100.5018
       - key: OBSERVATION_PROVINCES
         value: Bangkok,Samut Prakan,Nonthaburi,Pathum Thani,Nakhon Pathom,Samut Sakhon

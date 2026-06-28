@@ -1,6 +1,6 @@
 # Supabase Setup
 
-This project is ready to log Open-Meteo forecast snapshots into Supabase for future backtesting.
+This project is ready to log forecast history, actual rain observations, and verification results into Supabase for backtesting.
 
 ## What gets stored
 
@@ -11,7 +11,7 @@ This project is ready to log Open-Meteo forecast snapshots into Supabase for fut
 - `rain_observations`
   Stores actual rainfall observations collected from TMD AWS station feeds
 - `verification_results`
-  Reserved for backtest matching later
+  Stores forecast-vs-observation comparison results
 
 ## 1. Create a Supabase project
 
@@ -43,6 +43,8 @@ Add these environment variables to the Render web service:
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `SUPABASE_DB_SCHEMA=public`
+- `BACKTEST_FORECAST_LAT=13.7563`
+- `BACKTEST_FORECAST_LON=100.5018`
 
 Keep the existing TMD variables as they are.
 
@@ -71,6 +73,30 @@ Or collect only one province:
 
 - `/api/backtest/collect-observations?province=Bangkok`
 
+## Verification and summary
+
+Run verification manually:
+
+- `/api/backtest/run-verification`
+
+Run the full cycle manually:
+
+- `/api/backtest/run-cycle`
+
+Read the current summary:
+
+- `/api/backtest/summary`
+
+## Automatic hourly updates on Render
+
+The Render blueprint now includes a cron job that runs:
+
+- `python server.py run-backtest-cycle`
+
+every hour at minute `05`.
+
+That means the summary screen can grow automatically over time without someone having to open the dashboard first.
+
 ## 5. Verify logging
 
 After deploy:
@@ -84,9 +110,11 @@ After deploy:
 If logging works:
 - `forecast_runs` should receive 1 new row per forecast request
 - `forecast_hourly_points` should receive the hourly forecast rows linked by `run_id`
+- `rain_observations` should receive TMD AWS observation rows
+- `verification_results` should receive matched forecast-vs-observation rows
 
 ## Notes
 
 - Logging is optional and only activates when both `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are present.
 - If Supabase is unavailable, the web app still serves forecast data normally. Logging failures are printed in the server logs and do not block the response.
-- Backtest metrics are not implemented yet. This setup only starts collecting forecast history so we can compare it with real rainfall later.
+- The backtest summary API reads from `verification_results`, so early numbers can still look unstable until more hourly runs accumulate.

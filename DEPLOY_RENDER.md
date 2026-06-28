@@ -25,9 +25,36 @@ This project can be deployed as a Render Web Service.
    - `SUPABASE_URL` = optional for backtest logging
    - `SUPABASE_SERVICE_ROLE_KEY` = optional for backtest logging
    - `SUPABASE_DB_SCHEMA` = optional, default `public`
+   - `BACKTEST_FORECAST_LAT` = optional, default `13.7563`
+   - `BACKTEST_FORECAST_LON` = optional, default `100.5018`
    - `OBSERVATION_PROVINCES` = optional, comma-separated AWS provinces for actual-rain ingestion
 
 6. Deploy the service.
+
+## Automatic backtest updates
+
+This blueprint now includes a Render **Cron Job**:
+
+- `rain-forecast-backtest-hourly`
+- schedule: every hour at minute `05`
+
+What it does each run:
+
+1. Collects a fresh Open-Meteo forecast snapshot
+2. Collects TMD AWS actual-rain observations
+3. Runs forecast-vs-observation verification
+4. Updates the data used by `/api/backtest/summary`
+
+Command used by the cron job:
+
+- `python server.py run-backtest-cycle`
+
+You can also run the steps manually:
+
+- `python server.py collect-forecast`
+- `python server.py collect-observations`
+- `python server.py run-verification`
+- `python server.py backtest-summary`
 
 ## Daily workflow
 
@@ -59,5 +86,7 @@ Open these paths:
 - `/api/forecast/tmd/warning`
 - `/api/forecast/tmd/daily-summary`
 - `/api/backtest/collect-observations`
+- `/api/backtest/run-cycle`
+- `/api/backtest/summary`
 
 If Supabase is configured, `/health` should also show `supabase_configured: true`.

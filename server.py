@@ -15,6 +15,8 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 DEFAULT_PORT = 8000
 ENV_PATH = Path(__file__).with_name(".env")
+DEFAULT_FORECAST_LAT = "13.7563"
+DEFAULT_FORECAST_LON = "100.5018"
 DEFAULT_OBSERVATION_PROVINCES = [
     "Bangkok",
     "Samut Prakan",
@@ -158,6 +160,12 @@ def parse_observation_provinces(raw_value: str | None) -> list[str]:
     return provinces or DEFAULT_OBSERVATION_PROVINCES[:]
 
 
+def get_backtest_target_lat_lon() -> tuple[str, str]:
+    lat = (os.getenv("BACKTEST_FORECAST_LAT") or DEFAULT_FORECAST_LAT).strip()
+    lon = (os.getenv("BACKTEST_FORECAST_LON") or DEFAULT_FORECAST_LON).strip()
+    return lat, lon
+
+
 def is_supabase_logging_enabled() -> bool:
     return bool(os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_SERVICE_ROLE_KEY"))
 
@@ -228,6 +236,16 @@ def supabase_get(path: str, timeout: int = 10) -> Any:
             f"body_bytes={len(raw.encode('utf-8')) if raw else 0}"
         )
         return json.loads(raw) if raw else None
+
+
+def fetch_json_url(url: str, headers: dict[str, str] | None = None, timeout: int = 20) -> dict[str, Any]:
+    request = urllib.request.Request(url)
+    request.add_header("Accept", "application/json")
+    for key, value in (headers or {}).items():
+        request.add_header(key, value)
+
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return json.loads(response.read().decode("utf-8"))
 
 
 def build_openmeteo_run_record(lat: str, lon: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -560,6 +578,26 @@ def collect_tmd_aws_observations(provinces: list[str] | None = None) -> dict[str
     }
 
 
+def collect_openmeteo_forecast_snapshot(lat: str | None = None, lon: str | None = None) -> dict[str, Any]:
+    target_lat = str(lat or get_backtest_target_lat_lon()[0])
+    target_lon = str(lon or get_backtest_target_lat_lon()[1])
+    openmeteo_url = build_openmeteo_url(target_lat, target_lon)
+    log_event(f"Collecting Open-Meteo snapshot for backtest: {openmeteo_url}")
+    payload = fetch_json_url(openmeteo_url, timeout=20)
+    log_openmeteo_snapshot(target_lat, target_lon, payload)
+
+    hourly_count = len((payload.get("hourly") or {}).get("time") or [])
+    return {
+        "success": True,
+        "source": "openmeteo",
+        "lat": float(target_lat),
+        "lon": float(target_lon),
+        "hourly_points": hourly_count,
+        "timezone": payload.get("timezone"),
+        "generated_at": utc_now_iso(),
+    }
+
+
 def run_backtest_verification() -> dict[str, Any]:
     if not is_supabase_logging_enabled():
         raise RuntimeError("Supabase logging is not configured.")
@@ -581,6 +619,28 @@ def run_backtest_verification() -> dict[str, Any]:
         "source": "forecast-vs-observation",
         "rows_inserted": inserted_count,
         "stats": stats,
+    }
+
+
+def run_backtest_cycle(
+    lat: str | None = None,
+    lon: str | None = None,
+    provinces: list[str] | None = None,
+) -> dict[str, Any]:
+    forecast_result = collect_openmeteo_forecast_snapshot(lat, lon)
+    observation_result = collect_tmd_aws_observations(provinces)
+    verification_result = run_backtest_verification()
+    summary_result = summarize_backtest_results()
+
+    return {
+        "success": True,
+        "cycle": {
+            "forecast": forecast_result,
+            "observations": observation_result,
+            "verification": verification_result,
+            "summary": summary_result.get("summary", {}),
+            "confidence_flags": summary_result.get("confidence_flags", []),
+        },
     }
 
 
@@ -667,6 +727,46 @@ def summarize_backtest_results() -> dict[str, Any]:
         "rain_intensity_breakdown": intensity_breakdown,
         "confidence_flags": confidence_note,
     }
+
+
+def print_json(payload: Any) -> None:
+    print(json.dumps(payload, ensure_ascii=False, indent=2), flush=True)
+
+
+def run_cli_command(argv: list[str]) -> int:
+    if not argv:
+        return -1
+
+    command = argv[0]
+    lat, lon = get_backtest_target_lat_lon()
+    provinces = parse_observation_provinces(os.getenv("OBSERVATION_PROVINCES"))
+
+    try:
+        if command == "collect-forecast":
+            print_json(collect_openmeteo_forecast_snapshot(lat, lon))
+            return 0
+        if command == "collect-observations":
+            print_json(collect_tmd_aws_observations(provinces))
+            return 0
+        if command == "run-verification":
+            print_json(run_backtest_verification())
+            return 0
+        if command == "run-backtest-cycle":
+            print_json(run_backtest_cycle(lat, lon, provinces))
+            return 0
+        if command == "backtest-summary":
+            print_json(summarize_backtest_results())
+            return 0
+
+        print(
+            "Unknown command. Use one of: collect-forecast, collect-observations, "
+            "run-verification, run-backtest-cycle, backtest-summary",
+            flush=True,
+        )
+        return 1
+    except Exception as error:
+        log_event(f"CLI command failed ({command}): {type(error).__name__}: {error}")
+        return 1
 
 
 def log_openmeteo_snapshot(lat: str, lon: str, payload: dict[str, Any]) -> None:
@@ -859,6 +959,21 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
                 status=500,
             )
 
+    def handle_run_backtest_cycle(self, query_params):
+        lat = query_params.get("lat", [get_backtest_target_lat_lon()[0]])[0]
+        lon = query_params.get("lon", [get_backtest_target_lat_lon()[1]])[0]
+        provinces = [item for item in query_params.get("province", []) if item] or None
+
+        try:
+            payload = run_backtest_cycle(lat, lon, provinces)
+            self.respond_json(payload)
+        except Exception as error:
+            log_event(f"Error during backtest cycle: {type(error).__name__}: {error}")
+            self.respond_json(
+                {"error": str(error), "source": "backtest-cycle"},
+                status=500,
+            )
+
     def handle_backtest_summary(self):
         try:
             payload = summarize_backtest_results()
@@ -886,6 +1001,10 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
         run_verification_paths = {
             "/api/backtest/run-verification",
             "/api/forecast/backtest/run-verification",
+        }
+        run_backtest_cycle_paths = {
+            "/api/backtest/run-cycle",
+            "/api/forecast/backtest/run-cycle",
         }
         backtest_summary_paths = {
             "/api/backtest/summary",
@@ -940,6 +1059,10 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_run_verification()
             return
 
+        if parsed_url.path in run_backtest_cycle_paths:
+            self.handle_run_backtest_cycle(query_params)
+            return
+
         if parsed_url.path in backtest_summary_paths:
             self.handle_backtest_summary()
             return
@@ -954,6 +1077,11 @@ class ThreadingReusableTCPServer(socketserver.ThreadingMixIn, socketserver.TCPSe
 
 load_env_file(ENV_PATH)
 PORT = int(os.getenv("PORT", str(DEFAULT_PORT)))
+
+if len(sys.argv) > 1:
+    exit_code = run_cli_command(sys.argv[1:])
+    if exit_code >= 0:
+        sys.exit(exit_code)
 
 print(f"Starting server with forecast proxy on port {PORT}...")
 try:
