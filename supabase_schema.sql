@@ -69,6 +69,8 @@ create table if not exists public.verification_results (
   rain_intensity_class text,
   probability_bucket text,
   absolute_error_mm double precision,
+  forecast_source text,
+  lead_hours double precision,
   created_at timestamptz not null default now(),
   unique (forecast_hour_id, station_code)
 );

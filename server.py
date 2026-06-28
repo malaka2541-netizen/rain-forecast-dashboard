@@ -69,6 +69,16 @@ def build_openmeteo_url(lat: str, lon: str) -> str:
     )
 
 
+def build_openweather_url(lat: str, lon: str) -> str | None:
+    api_key = os.getenv("OPENWEATHER_API_KEY")
+    if not api_key:
+        return None
+    return (
+        f"https://api.openweathermap.org/data/3.0/onecall"
+        f"?lat={lat}&lon={lon}&exclude=minutely&units=metric&appid={api_key}"
+    )
+
+
 def build_tmd_url(lat: str, lon: str, forecast_type: str) -> str:
     if forecast_type == "hourly":
         return (
@@ -298,6 +308,62 @@ def build_openmeteo_hour_rows(run_id: int, payload: dict[str, Any]) -> list[dict
     return rows
 
 
+def build_openweather_run_record(lat: str, lon: str, payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "source": "openweather",
+        "requested_lat": float(lat),
+        "requested_lon": float(lon),
+        "requested_at": utc_now_iso(),
+        "timezone": payload.get("timezone"),
+        "generation_time_ms": None,
+        "utc_offset_seconds": payload.get("timezone_offset"),
+        "raw_payload": payload,
+    }
+
+
+def build_openweather_hour_rows(run_id: int, payload: dict[str, Any]) -> list[dict[str, Any]]:
+    hourly = payload.get("hourly") or []
+    issued_at = parse_iso_datetime(utc_now_iso())
+    rows = []
+
+    for item in hourly:
+        dt_timestamp = item.get("dt")
+        if not dt_timestamp:
+            continue
+        
+        forecast_dt = datetime.fromtimestamp(dt_timestamp, timezone.utc)
+        lead_hours = None
+        if issued_at:
+            lead_hours = round((forecast_dt - issued_at).total_seconds() / 3600, 2)
+
+        pop = item.get("pop", 0)
+        prob = pop * 100 if pop is not None else None
+
+        rain_obj = item.get("rain") or {}
+        rain_mm = rain_obj.get("1h")
+
+        weather_arr = item.get("weather") or []
+        weather_id = weather_arr[0].get("id") if weather_arr else None
+
+        rows.append(
+            {
+                "run_id": run_id,
+                "forecast_time": forecast_dt.isoformat(),
+                "lead_hours": lead_hours,
+                "precipitation_probability": prob,
+                "precipitation_mm": rain_mm,
+                "weather_code": weather_id,
+                "wind_speed_10m": item.get("wind_speed"),
+                "wind_gusts_10m": item.get("wind_gust"),
+                "cape": None,
+                "dewpoint_2m": item.get("dew_point"),
+                "surface_pressure": item.get("pressure"),
+            }
+        )
+
+    return rows
+
+
 def fetch_tmd_aws_observations(province: str) -> list[dict[str, Any]]:
     aws_url = build_tmd_aws_url(province)
     log_event(f"Fetching TMD AWS observations for province={province}: {aws_url}")
@@ -410,7 +476,7 @@ def build_tmd_aws_observation_rows(province: str, stations: list[dict[str, Any]]
 
 def fetch_recent_forecast_runs(limit: int = 50) -> list[dict[str, Any]]:
     return supabase_get(
-        f"/rest/v1/forecast_runs?select=id,requested_lat,requested_lon,requested_at"
+        f"/rest/v1/forecast_runs?select=id,source,requested_lat,requested_lon,requested_at"
         f"&order=requested_at.desc&limit={limit}",
         timeout=20,
     ) or []
@@ -425,7 +491,7 @@ def fetch_forecast_points_for_runs(
     run_filter = ",".join(str(run_id) for run_id in run_ids)
     return supabase_get(
         "/rest/v1/forecast_hourly_points"
-        "?select=id,run_id,forecast_time,precipitation_probability,precipitation_mm"
+        "?select=id,run_id,forecast_time,lead_hours,precipitation_probability,precipitation_mm"
         f"&run_id=in.({run_filter})"
         f"&order=forecast_time.asc&limit={limit}",
         timeout=20,
@@ -445,7 +511,7 @@ def fetch_verification_results(limit: int = 5000) -> list[dict[str, Any]]:
     return supabase_get(
         "/rest/v1/verification_results"
         "?select=station_code,observed_time,observed_rainfall_mm,did_rain,"
-        "rain_intensity_class,probability_bucket,absolute_error_mm,created_at"
+        "rain_intensity_class,probability_bucket,absolute_error_mm,forecast_source,lead_hours,created_at"
         f"&order=observed_time.desc&limit={limit}",
         timeout=20,
     ) or []
@@ -528,6 +594,8 @@ def build_verification_rows() -> tuple[list[dict[str, Any]], dict[str, Any]]:
                     forecast_point.get("precipitation_probability")
                 ),
                 "absolute_error_mm": absolute_error_mm,
+                "forecast_source": run.get("source"),
+                "lead_hours": forecast_point.get("lead_hours"),
             }
         )
         matched_points += 1
@@ -632,7 +700,8 @@ def run_backtest_cycle(
     lon: str | None = None,
     provinces: list[str] | None = None,
 ) -> dict[str, Any]:
-    forecast_result = collect_openmeteo_forecast_snapshot(lat, lon)
+    openmeteo_result = collect_openmeteo_forecast_snapshot(lat, lon)
+    openweather_result = collect_openweather_forecast_snapshot(lat, lon)
     observation_result = collect_tmd_aws_observations(provinces)
     verification_result = run_backtest_verification()
     summary_result = summarize_backtest_results()
@@ -640,13 +709,37 @@ def run_backtest_cycle(
     return {
         "success": True,
         "cycle": {
-            "forecast": forecast_result,
+            "forecast_openmeteo": openmeteo_result,
+            "forecast_openweather": openweather_result,
             "observations": observation_result,
             "verification": verification_result,
             "summary": summary_result.get("summary", {}),
             "confidence_flags": summary_result.get("confidence_flags", []),
         },
     }
+
+
+def build_lead_time_bucket(lead_hours: Any) -> str:
+    if lead_hours is None:
+        return "unknown"
+    try:
+        val = float(lead_hours)
+    except (TypeError, ValueError):
+        return "unknown"
+    
+    if val < 0:
+        return "past"
+    if val <= 6:
+        return "0-6h"
+    if val <= 12:
+        return "6-12h"
+    if val <= 24:
+        return "12-24h"
+    if val <= 48:
+        return "24-48h"
+    if val <= 72:
+        return "48-72h"
+    return "72h+"
 
 
 def average(values: list[float]) -> float | None:
@@ -658,10 +751,19 @@ def summarize_group(rows: list[dict[str, Any]]) -> dict[str, Any]:
     rain_hits = sum(1 for row in rows if row.get("did_rain") is True)
     observed_mm_values = []
     error_values = []
+    
+    brier_sum = 0.0
+    brier_count = 0
+    false_alarms = 0
+    misses = 0
+    actual_positives = 0
+    actual_negatives = 0
 
     for row in rows:
         rainfall_mm = row.get("observed_rainfall_mm")
         abs_error = row.get("absolute_error_mm")
+        did_rain = row.get("did_rain") is True
+
         try:
             if rainfall_mm is not None:
                 observed_mm_values.append(float(rainfall_mm))
@@ -672,14 +774,42 @@ def summarize_group(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 error_values.append(float(abs_error))
         except (TypeError, ValueError):
             pass
+            
+        prob_bucket = row.get("probability_bucket")
+        prob_val = None
+        if prob_bucket == "high": prob_val = 0.85
+        elif prob_bucket == "medium": prob_val = 0.50
+        elif prob_bucket == "low": prob_val = 0.15
+
+        if prob_val is not None:
+            actual_val = 1.0 if did_rain else 0.0
+            brier_sum += (prob_val - actual_val) ** 2
+            brier_count += 1
+            
+            predicted_rain = prob_val > 0.5
+            if did_rain:
+                actual_positives += 1
+                if not predicted_rain:
+                    misses += 1
+            else:
+                actual_negatives += 1
+                if predicted_rain:
+                    false_alarms += 1
 
     hit_rate = round((rain_hits / total_checks) * 100, 1) if total_checks else None
+    brier_score = round(brier_sum / brier_count, 3) if brier_count > 0 else None
+    miss_rate = round((misses / actual_positives) * 100, 1) if actual_positives > 0 else None
+    false_alarm_rate = round((false_alarms / actual_negatives) * 100, 1) if actual_negatives > 0 else None
+
     return {
         "total_checks": total_checks,
         "rain_hits": rain_hits,
         "actual_rain_rate_pct": hit_rate,
         "avg_observed_rain_mm": average(observed_mm_values),
         "avg_abs_error_mm": average(error_values),
+        "brier_score": brier_score,
+        "miss_rate_pct": miss_rate,
+        "false_alarm_rate_pct": false_alarm_rate,
     }
 
 
@@ -699,10 +829,16 @@ def summarize_backtest_results() -> dict[str, Any]:
 
     probability_groups: dict[str, list[dict[str, Any]]] = {}
     intensity_groups: dict[str, list[dict[str, Any]]] = {}
+    source_groups: dict[str, list[dict[str, Any]]] = {}
+    lead_time_groups: dict[str, list[dict[str, Any]]] = {}
 
     for row in rows:
         probability_groups.setdefault(row.get("probability_bucket") or "unknown", []).append(row)
         intensity_groups.setdefault(row.get("rain_intensity_class") or "unknown", []).append(row)
+        source_groups.setdefault(row.get("forecast_source") or "unknown", []).append(row)
+        
+        lt_bucket = build_lead_time_bucket(row.get("lead_hours"))
+        lead_time_groups.setdefault(lt_bucket, []).append(row)
 
     summary = summarize_group(rows)
     observed_times = [row["observed_time"] for row in rows if row.get("observed_time")]
@@ -719,6 +855,14 @@ def summarize_backtest_results() -> dict[str, Any]:
         key: summarize_group(group_rows)
         for key, group_rows in sorted(intensity_groups.items())
     }
+    source_breakdown = {
+        key: summarize_group(group_rows)
+        for key, group_rows in sorted(source_groups.items())
+    }
+    lead_time_breakdown = {
+        key: summarize_group(group_rows)
+        for key, group_rows in sorted(lead_time_groups.items())
+    }
 
     confidence_note = []
     total_checks = summary["total_checks"]
@@ -732,6 +876,8 @@ def summarize_backtest_results() -> dict[str, Any]:
         "summary": summary,
         "probability_breakdown": probability_breakdown,
         "rain_intensity_breakdown": intensity_breakdown,
+        "source_breakdown": source_breakdown,
+        "lead_time_breakdown": lead_time_breakdown,
         "confidence_flags": confidence_note,
     }
 
@@ -813,6 +959,68 @@ def log_openmeteo_snapshot(lat: str, lon: str, payload: dict[str, Any]) -> None:
         log_event(f"Supabase logging failed: {type(error).__name__}: {error}")
 
 
+def log_openweather_snapshot(lat: str, lon: str, payload: dict[str, Any]) -> None:
+    if not is_supabase_logging_enabled():
+        return
+
+    try:
+        hourly_count = len(payload.get("hourly") or [])
+        log_event(
+            f"Supabase logging start: source=openweather, lat={lat}, lon={lon}, "
+            f"hourly_points={hourly_count}"
+        )
+        run_rows = supabase_request(
+            "/rest/v1/forecast_runs",
+            build_openweather_run_record(lat, lon, payload),
+            prefer="return=representation",
+        )
+        if not run_rows:
+            return
+
+        run_id = run_rows[0]["id"]
+        hour_rows = build_openweather_hour_rows(run_id, payload)
+        if hour_rows:
+            supabase_request(
+                "/rest/v1/forecast_hourly_points",
+                hour_rows,
+                prefer="return=minimal",
+                timeout=15,
+            )
+        log_event(
+            f"Supabase logging completed for OpenWeather run {run_id} "
+            f"with {len(hour_rows)} hourly rows."
+        )
+    except Exception as error:
+        log_event(f"Supabase logging failed: {type(error).__name__}: {error}")
+
+
+def collect_openweather_forecast_snapshot(lat: str | None = None, lon: str | None = None) -> dict[str, Any]:
+    target_lat = str(lat or get_backtest_target_lat_lon()[0])
+    target_lon = str(lon or get_backtest_target_lat_lon()[1])
+    openweather_url = build_openweather_url(target_lat, target_lon)
+    if not openweather_url:
+        return {"success": False, "source": "openweather", "error": "OPENWEATHER_API_KEY is missing"}
+    
+    log_event(f"Collecting OpenWeather snapshot for backtest: {openweather_url}")
+    try:
+        payload = fetch_json_url(openweather_url, timeout=20)
+        log_openweather_snapshot(target_lat, target_lon, payload)
+
+        hourly_count = len(payload.get("hourly") or [])
+        return {
+            "success": True,
+            "source": "openweather",
+            "lat": float(target_lat),
+            "lon": float(target_lon),
+            "hourly_points": hourly_count,
+            "timezone": payload.get("timezone"),
+            "generated_at": utc_now_iso(),
+        }
+    except Exception as e:
+        log_event(f"OpenWeather collect error: {e}")
+        return {"success": False, "source": "openweather", "error": str(e)}
+
+
 class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
     def respond_json(self, payload, status=200, extra_headers=None):
         self.send_response(status)
@@ -847,12 +1055,91 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
         try:
             response_body = self.fetch_json(openmeteo_url, timeout=20)
             payload = json.loads(response_body.decode("utf-8"))
+            
+            # Apply probability calibration (Shadow Mode) if OpenWeather is configured
+            try:
+                ow_url = build_openweather_url(lat, lon)
+                if ow_url:
+                    ow_body = self.fetch_json(ow_url, timeout=15)
+                    ow_payload = json.loads(ow_body.decode("utf-8"))
+                    payload = self.apply_probability_calibration(payload, ow_payload)
+            except Exception as e:
+                log_event(f"Could not apply OpenWeather calibration: {e}")
+
             self.respond_json(payload)
             log_openmeteo_snapshot(lat, lon, payload)
             log_event("Open-Meteo request completed successfully.")
         except Exception as error:
             log_event(f"Error during Open-Meteo proxy request: {type(error).__name__}: {error}")
             self.respond_json({"error": str(error), "source": "openmeteo"}, status=500)
+
+    def apply_probability_calibration(self, om_payload, ow_payload):
+        from datetime import datetime
+        
+        ow_hourly = ow_payload.get("hourly", [])
+        timezone_offset = ow_payload.get("timezone_offset", 0)
+        ow_prob_map = {}
+        
+        for item in ow_hourly:
+            dt_unix = item.get("dt")
+            if dt_unix is not None:
+                # Convert UTC timestamp + offset to local string matching OM format
+                local_dt = datetime.utcfromtimestamp(dt_unix + timezone_offset)
+                dt_txt = local_dt.strftime("%Y-%m-%dT%H:00")
+                ow_prob_map[dt_txt] = float(item.get("pop", 0))
+
+        if "hourly" in om_payload and "time" in om_payload["hourly"] and "precipitation_probability" in om_payload["hourly"]:
+            om_times = om_payload["hourly"]["time"]
+            om_probs = om_payload["hourly"]["precipitation_probability"]
+            adjusted_probs = []
+
+            for i, time_str in enumerate(om_times):
+                om_prob = om_probs[i] if om_probs[i] is not None else 0
+                
+                if time_str in ow_prob_map:
+                    ow_prob = ow_prob_map[time_str] * 100
+                    
+                    if om_prob >= 30 and ow_prob < 30:
+                        adj_prob = round(om_prob * 0.70)
+                    elif om_prob < 30 and ow_prob >= 30:
+                        adj_prob = min(round(om_prob + 15), 40)
+                    else:
+                        adj_prob = om_prob
+                else:
+                    adj_prob = om_prob
+
+                adjusted_probs.append(adj_prob)
+            
+            om_payload["hourly"]["adjusted_precipitation_probability"] = adjusted_probs
+
+        return om_payload
+
+    def handle_openweather_forecast(self, lat, lon):
+        openweather_url = build_openweather_url(lat, lon)
+        if not openweather_url:
+            self.respond_json(
+                {
+                    "error": "OpenWeather API key is not configured.",
+                    "configured": False,
+                    "source": "openweather",
+                },
+                status=503,
+            )
+            return
+
+        log_event(f"Proxying OpenWeather request to: {openweather_url}")
+        try:
+            response_body = self.fetch_json(openweather_url, timeout=20)
+            payload = json.loads(response_body.decode("utf-8"))
+            self.respond_json(payload)
+            log_openweather_snapshot(lat, lon, payload)
+            log_event("OpenWeather request completed successfully.")
+        except urllib.error.HTTPError as error:
+            error_body = error.read().decode("utf-8")
+            self.respond_json({"error": error_body, "source": "openweather"}, status=error.code)
+        except Exception as error:
+            log_event(f"Error during OpenWeather proxy request: {type(error).__name__}: {error}")
+            self.respond_json({"error": str(error), "source": "openweather"}, status=500)
 
     def handle_geocode(self, lat, lon):
         nominatim_url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}&zoom=10&accept-language=th"
@@ -1021,6 +1308,7 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
         query_params, lat, lon = self.parse_lat_lon(parsed_url)
 
         openmeteo_paths = {"/api/openmeteo", "/api/forecast/openmeteo"}
+        openweather_paths = {"/api/openweather", "/api/forecast/openweather"}
         tmd_hourly_paths = {"/api/tmd", "/api/tmd/hourly", "/api/forecast/tmd/hourly"}
         tmd_daily_paths = {"/api/tmd/daily", "/api/forecast/tmd/daily"}
         tmd_warning_paths = {"/api/tmd/warning", "/api/forecast/tmd/warning"}
@@ -1048,18 +1336,23 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
                     "status": "ok",
                     "service": "rain-forecast-dashboard",
                     "tmd_configured": bool(os.getenv("TMD_API_TOKEN")),
+                    "openweather_configured": bool(os.getenv("OPENWEATHER_API_KEY")),
                     "supabase_configured": is_supabase_logging_enabled(),
                 }
             )
             return
 
-        if parsed_url.path in openmeteo_paths | tmd_hourly_paths | tmd_daily_paths:
+        if parsed_url.path in openmeteo_paths | openweather_paths | tmd_hourly_paths | tmd_daily_paths:
             if not lat or not lon:
                 self.respond_json({"error": "Missing parameters (lat, lon)"}, status=400)
                 return
 
         if parsed_url.path in openmeteo_paths:
             self.handle_openmeteo_forecast(lat, lon)
+            return
+
+        if parsed_url.path in openweather_paths:
+            self.handle_openweather_forecast(lat, lon)
             return
 
         if parsed_url.path == "/api/geocode":

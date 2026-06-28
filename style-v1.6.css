@@ -1710,3 +1710,26 @@ select:focus {
   from { transform: scale(0.9); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
+
+/* Agreement Badge Styles */
+.agreement-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-shadow: 0 0 2px rgba(0,0,0,0.2);
+}
+
+.badge-agree {
+  background-color: #10b981;
+}
+
+.badge-disagree {
+  background-color: #ef4444;
+}
+
+
+.forecast-table td { position: relative; }
+

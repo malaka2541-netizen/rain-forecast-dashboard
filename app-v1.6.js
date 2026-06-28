@@ -61,7 +61,16 @@ const accuracyPeriodText = document.getElementById("accuracy-period-text");
 const accuracyUpdatedText = document.getElementById("accuracy-updated-text");
 const accuracyProbabilityBreakdown = document.getElementById("accuracy-probability-breakdown");
 const accuracyIntensityBreakdown = document.getElementById("accuracy-intensity-breakdown");
+const accuracySourceBreakdown = document.getElementById("accuracy-source-breakdown");
+const accuracyLeadTimeBreakdown = document.getElementById("accuracy-lead-time-breakdown");
 const accuracyConfidenceNotes = document.getElementById("accuracy-confidence-notes");
+
+const comparisonModal = document.getElementById("comparison-modal");
+const comparisonTimeTitle = document.getElementById("comparison-time-title");
+const comparisonContent = document.getElementById("comparison-content");
+const btnCloseComparisonHeader = document.getElementById("btn-close-comparison-header");
+const btnCloseComparison = document.getElementById("btn-close-comparison");
+
 const tableHoverTooltip = document.createElement("div");
 tableHoverTooltip.className = "forecast-hover-tooltip hidden";
 document.body.appendChild(tableHoverTooltip);
@@ -520,6 +529,7 @@ function findStrongestRainProfile(entries) {
   return best;
 }
 
+
 function buildTableTooltipHtml(hour, entry) {
   const weather = getWeatherDetails(entry.weatherCode, entry.precipitation, entry.windGust, entry.probability);
   const weatherIconHtml = buildWeatherIconHtml(weather);
@@ -578,6 +588,80 @@ function renderSourceComparison() {
   if (!openMeteoSourceStatus || !tmdSourceStatus) return;
   openMeteoSourceStatus.textContent = sourceComparisonState.openMeteoText;
   tmdSourceStatus.textContent = sourceComparisonState.tmdText;
+}
+
+function getAgreementLevel(omEntry, owEntry) {
+  if (!owEntry || omEntry.probability === null || omEntry.probability === undefined || owEntry.probability === null || owEntry.probability === undefined) return "unknown";
+  
+  const omRain = omEntry.probability >= 0.3; // Using 30% as threshold for rain expected
+  const owRain = owEntry.probability >= 0.3;
+  
+  if (omRain === owRain) return "agree";
+  return "disagree";
+}
+
+function openComparisonModal(dateStr, hour) {
+  if (!comparisonModal || !comparisonContent) return;
+
+  const omDay = activeForecastData.find(d => d.date === dateStr);
+  const owDay = sourceComparisonState.openWeatherData ? sourceComparisonState.openWeatherData.find(d => d.date === dateStr) : null;
+  
+  const omEntry = omDay ? omDay.values[hour] : null;
+  const owEntry = owDay ? owDay.values[hour] : null;
+
+  comparisonTimeTitle.textContent = `เปรียบเทียบข้อมูล: ${formatDateThai(dateStr)} ${hour} น.`;
+
+  let html = '';
+  
+  if (omEntry) {
+    const weather = getWeatherDetails(omEntry.weatherCode, omEntry.precipitation, omEntry.windGust, omEntry.probability);
+    html += `
+      <div style="padding: 1rem; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px;">
+        <h4 style="margin: 0 0 0.5rem 0; color: #0ea5e9;">Open-Meteo (หลัก)</h4>
+        <div>โอกาสฝน: ${Math.round(omEntry.probability * 100)}%</div>
+        <div>ปริมาณฝนคาดการณ์: ${formatMillimeters(omEntry.precipitation)}</div>
+        <div>สภาพอากาศ: ${weather.label}</div>
+      </div>
+    `;
+  }
+  
+  if (owEntry) {
+    const weather = getWeatherDetails(owEntry.weatherCode, owEntry.precipitation, owEntry.windGust, owEntry.probability);
+    html += `
+      <div style="padding: 1rem; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px;">
+        <h4 style="margin: 0 0 0.5rem 0; color: #f59e0b;">OpenWeather (เปรียบเทียบ)</h4>
+        <div>โอกาสฝน: ${Math.round(owEntry.probability * 100)}%</div>
+        <div>ปริมาณฝนคาดการณ์: ${formatMillimeters(owEntry.precipitation)}</div>
+        <div>สภาพอากาศ: ${weather.label}</div>
+      </div>
+    `;
+  } else {
+    html += `
+      <div style="padding: 1rem; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; opacity: 0.7;">
+        <h4 style="margin: 0 0 0.5rem 0; color: #f59e0b;">OpenWeather (เปรียบเทียบ)</h4>
+        <div>ไม่มีข้อมูลในชั่วโมงนี้ หรือยังไม่ได้ตั้งค่า API Key</div>
+      </div>
+    `;
+  }
+  
+  const agreement = getAgreementLevel(omEntry, owEntry);
+  if (agreement === "agree") {
+    html += `<div style="padding: 0.5rem; text-align: center; color: #10b981; font-weight: bold; background: rgba(16, 185, 129, 0.1); border-radius: 8px;"><i class="fa-solid fa-check-circle"></i> สองโมเดลมีความเห็นสอดคล้องกัน</div>`;
+  } else if (agreement === "disagree") {
+    html += `<div style="padding: 0.5rem; text-align: center; color: #ef4444; font-weight: bold; background: rgba(239, 68, 68, 0.1); border-radius: 8px;"><i class="fa-solid fa-triangle-exclamation"></i> สองโมเดลมีความเห็นขัดแย้งกัน ควรเฝ้าระวังพิเศษ</div>`;
+  }
+  
+  if (omEntry && omEntry.adjustedProbability !== undefined && omEntry.adjustedProbability !== omEntry.probability) {
+    html += `
+      <div style="margin-top: 0.5rem; padding: 0.75rem; background: rgba(59, 130, 246, 0.1); border-left: 4px solid #3b82f6; border-radius: 4px; font-size: 0.9em;">
+        <strong>[Shadow Mode] Adjusted Forecast:</strong><br>
+        หากเปิดใช้งานระบบปรับแก้เปรียบเทียบ (Calibration) ระบบคำนวณปรับโอกาสฝนให้เป็น <strong>${Math.round(omEntry.adjustedProbability * 100)}%</strong>
+      </div>
+    `;
+  }
+  
+  comparisonContent.innerHTML = html;
+  comparisonModal.classList.remove("hidden");
 }
 
 function flattenForecastEntries(forecastDays) {
@@ -969,6 +1053,43 @@ async function fetchOpenMeteoForecast(lat, lon) {
 
   const forecastDays = Object.keys(grouped)
     .sort()
+
+async function fetchOpenMeteoForecast(lat, lon) {
+  const response = await fetch(`/api/forecast/openmeteo?lat=${lat}&lon=${lon}&_t=${Date.now()}`);
+  if (!response.ok) {
+    throw new Error(`Open-Meteo returned status ${response.status}`);
+  }
+
+  const data = await response.json();
+  const hourly = data.hourly;
+  const grouped = {};
+
+  hourly.time.forEach((timeStr, index) => {
+    const [datePart, timePart] = timeStr.split("T");
+    const hourKey = timePart.substring(0, 5);
+    if (!grouped[datePart]) grouped[datePart] = {};
+
+    const probability = clampProbability(hourly.precipitation_probability?.[index]);
+    const adjustedProbabilityRaw = hourly.adjusted_precipitation_probability?.[index];
+    const adjustedProbability = adjustedProbabilityRaw !== undefined ? clampProbability(adjustedProbabilityRaw) : probability;
+
+    const precipitation = Number(hourly.precipitation?.[index] ?? 0);
+    const weatherCode = Number(hourly.weather_code?.[index] ?? 0);
+    const windSpeed = Number(hourly.wind_speed_10m?.[index] ?? 0);
+    const windGust = Number(hourly.wind_gusts_10m?.[index] ?? 0);
+
+    grouped[datePart][hourKey] = {
+      probability,
+      adjustedProbability,
+      precipitation: Number.isFinite(precipitation) ? precipitation : 0,
+      weatherCode: Number.isFinite(weatherCode) ? weatherCode : 0,
+      windSpeed: Number.isFinite(windSpeed) ? windSpeed : 0,
+      windGust: Number.isFinite(windGust) ? windGust : 0
+    };
+  });
+
+  const forecastDays = Object.keys(grouped)
+    .sort()
     .map(dateStr => ({
       date: dateStr,
       values: grouped[dateStr]
@@ -977,6 +1098,57 @@ async function fetchOpenMeteoForecast(lat, lon) {
   return {
     forecastDays,
     statusText: buildOpenMeteoStatusText(forecastDays)
+  };
+}
+
+async function fetchOpenWeatherForecast(lat, lon) {
+  const response = await fetch(`/api/forecast/openweather?lat=${lat}&lon=${lon}&_t=${Date.now()}`);
+  if (!response.ok) {
+    if (response.status === 503) {
+      throw { status: 503, message: "OpenWeather API key is not configured" };
+    }
+    throw new Error(`OpenWeather returned status ${response.status}`);
+  }
+
+  const data = await response.json();
+  const hourly = data.hourly || [];
+  const grouped = {};
+
+  hourly.forEach((item) => {
+    if (!item.dt) return;
+    
+    // Convert to local Bangkok time
+    const dateObj = new Date(item.dt * 1000);
+    const dateStr = dateObj.toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" }); // YYYY-MM-DD
+    const hourKey = dateObj.toLocaleTimeString("en-GB", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit" });
+
+    if (!grouped[dateStr]) grouped[dateStr] = {};
+
+    const probability = item.pop !== undefined ? clampProbability(item.pop * 100) : null;
+    const precipitation = Number(item.rain?.["1h"] ?? 0);
+    const weatherCode = item.weather && item.weather[0] ? item.weather[0].id : 0; // Keeping raw code for now, mapping can be done later if needed
+    const windSpeed = Number(item.wind_speed ?? 0) * 3.6; // m/s to km/h
+    const windGust = Number(item.wind_gust ?? 0) * 3.6; // m/s to km/h
+
+    grouped[dateStr][hourKey] = {
+      probability,
+      precipitation: Number.isFinite(precipitation) ? precipitation : 0,
+      weatherCode: weatherCode,
+      windSpeed: Number.isFinite(windSpeed) ? windSpeed : 0,
+      windGust: Number.isFinite(windGust) ? windGust : 0
+    };
+  });
+
+  const forecastDays = Object.keys(grouped)
+    .sort()
+    .map(dateStr => ({
+      date: dateStr,
+      values: grouped[dateStr]
+    }));
+
+  return {
+    forecastDays,
+    statusText: forecastDays.length ? "เชื่อมต่อ OpenWeather สำเร็จ" : "ไม่มีข้อมูลจาก OpenWeather"
   };
 }
 
@@ -1105,6 +1277,29 @@ function getIntensityThai(key) {
   return map[key] || key;
 }
 
+function getSourceThai(key) {
+  const map = {
+    openmeteo: "Open-Meteo",
+    openweather: "OpenWeather",
+    unknown: "ไม่ระบุ"
+  };
+  return map[key] || key;
+}
+
+function getLeadTimeThai(key) {
+  const map = {
+    "0-6h": "0 - 6 ชั่วโมง",
+    "6-12h": "6 - 12 ชั่วโมง",
+    "12-24h": "12 - 24 ชั่วโมง",
+    "24-48h": "24 - 48 ชั่วโมง",
+    "48-72h": "48 - 72 ชั่วโมง",
+    "72h+": "มากกว่า 72 ชั่วโมง",
+    "past": "ข้อมูลในอดีต",
+    "unknown": "ไม่ระบุ"
+  };
+  return map[key] || key;
+}
+
 function buildBreakdownHtml(breakdown = {}, labelFormatter) {
   const entries = Object.entries(breakdown);
   if (!entries.length) {
@@ -1114,13 +1309,18 @@ function buildBreakdownHtml(breakdown = {}, labelFormatter) {
   return entries.map(([key, item]) => `
     <div class="accuracy-breakdown-item">
       <div class="accuracy-breakdown-head">
-        <strong>${labelFormatter(key)}</strong>
+        <strong>${labelFormatter ? labelFormatter(key) : key}</strong>
         <span>${item.total_checks || 0} จุดตรวจ</span>
       </div>
       <div class="accuracy-breakdown-meta">
         ฝนตกจริง ${formatBacktestPercent(item.actual_rain_rate_pct)} |
         ปริมาณฝนจริงเฉลี่ย ${formatBacktestMillimeters(item.avg_observed_rain_mm)} |
         คลาดเคลื่อนเฉลี่ย ${formatBacktestMillimeters(item.avg_abs_error_mm)}
+      </div>
+      <div class="accuracy-breakdown-meta" style="margin-top: 0.2rem; color: var(--text-muted); font-size: 0.8rem;">
+        Brier Score: ${item.brier_score !== null && item.brier_score !== undefined ? item.brier_score : '-'} |
+        Miss Rate: ${item.miss_rate_pct !== null && item.miss_rate_pct !== undefined ? item.miss_rate_pct + '%' : '-'} |
+        False Alarm: ${item.false_alarm_rate_pct !== null && item.false_alarm_rate_pct !== undefined ? item.false_alarm_rate_pct + '%' : '-'}
       </div>
     </div>
   `).join("");
@@ -1155,6 +1355,8 @@ async function openAccuracyModal() {
     accuracyUpdatedText.textContent = `อัปเดตล่าสุด: ${formatBacktestDateTime(summary.latest_updated_at)}`;
     accuracyProbabilityBreakdown.innerHTML = buildBreakdownHtml(payload.probability_breakdown, getProbabilityBucketThai);
     accuracyIntensityBreakdown.innerHTML = buildBreakdownHtml(payload.rain_intensity_breakdown, getIntensityThai);
+    accuracySourceBreakdown.innerHTML = buildBreakdownHtml(payload.source_breakdown, getSourceThai);
+    accuracyLeadTimeBreakdown.innerHTML = buildBreakdownHtml(payload.lead_time_breakdown, getLeadTimeThai);
 
     const notes = [];
     if (confidenceFlags.includes("sample-small")) {
@@ -1187,6 +1389,13 @@ async function openAccuracyModal() {
 
 // Initialize application
 document.addEventListener("DOMContentLoaded", () => {
+  if (btnCloseComparisonHeader) {
+    btnCloseComparisonHeader.addEventListener("click", () => comparisonModal.classList.add("hidden"));
+  }
+  if (btnCloseComparison) {
+    btnCloseComparison.addEventListener("click", () => comparisonModal.classList.add("hidden"));
+  }
+
   // Fetch real data on load automatically
   renderSourceComparison();
   fetchDashboardData();
@@ -1606,12 +1815,33 @@ function renderTable() {
 
         cell.appendChild(valueWrapper);
         cell.appendChild(iconWrapper);
+        
+        // Add agreement badge
+        const owDay = sourceComparisonState.openWeatherData ? sourceComparisonState.openWeatherData.find(d => d.date === day.date) : null;
+        const owEntry = owDay ? owDay.values[hour] : null;
+        const agreement = getAgreementLevel(entry, owEntry);
+        
+        if (agreement !== "unknown") {
+          const badge = document.createElement("div");
+          badge.className = `agreement-badge badge-${agreement}`;
+          badge.title = agreement === "agree" ? "OpenWeather สอดคล้อง" : "OpenWeather ขัดแย้ง";
+          cell.appendChild(badge);
+        }
+
         cell.setAttribute("aria-label", `${hour} ${weather.label} ${rainIntensity.label}`);
         cell.addEventListener("mouseenter", (event) => {
           showTableTooltip(buildTableTooltipHtml(hour, entry), event);
         });
         cell.addEventListener("mousemove", moveTableTooltip);
         cell.addEventListener("mouseleave", hideTableTooltip);
+        
+        // Add click listener for Comparison Modal
+        cell.style.cursor = "pointer";
+        cell.addEventListener("click", () => {
+          hideTableTooltip();
+          openComparisonModal(day.date, hour);
+        });
+
         
         if (val <= 0.30) {
           cell.className = "cell-low";
