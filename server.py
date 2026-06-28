@@ -166,6 +166,10 @@ def get_backtest_target_lat_lon() -> tuple[str, str]:
     return lat, lon
 
 
+def get_backtest_cron_token() -> str:
+    return (os.getenv("BACKTEST_CRON_TOKEN") or "").strip()
+
+
 def is_supabase_logging_enabled() -> bool:
     return bool(os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_SERVICE_ROLE_KEY"))
 
@@ -959,6 +963,33 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
                 status=500,
             )
 
+    def authorize_backtest_cron(self, query_params):
+        expected_token = get_backtest_cron_token()
+        if not expected_token:
+            return True
+
+        auth_header = self.headers.get("Authorization", "")
+        provided_token = ""
+
+        if auth_header.startswith("Bearer "):
+            provided_token = auth_header[7:].strip()
+
+        if not provided_token:
+            provided_token = query_params.get("token", [""])[0].strip()
+
+        if provided_token != expected_token:
+            self.respond_json(
+                {
+                    "error": "Unauthorized",
+                    "source": "backtest-cycle",
+                    "message": "Missing or invalid backtest cron token.",
+                },
+                status=401,
+            )
+            return False
+
+        return True
+
     def handle_run_backtest_cycle(self, query_params):
         lat = query_params.get("lat", [get_backtest_target_lat_lon()[0]])[0]
         lon = query_params.get("lon", [get_backtest_target_lat_lon()[1]])[0]
@@ -1060,6 +1091,8 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if parsed_url.path in run_backtest_cycle_paths:
+            if not self.authorize_backtest_cron(query_params):
+                return
             self.handle_run_backtest_cycle(query_params)
             return
 

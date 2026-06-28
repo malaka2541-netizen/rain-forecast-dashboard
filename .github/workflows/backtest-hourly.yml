@@ -1,0 +1,30 @@
+name: Backtest Hourly
+
+on:
+  schedule:
+    - cron: "7 * * * *"
+  workflow_dispatch:
+
+jobs:
+  trigger-backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Trigger backtest cycle on Render
+        env:
+          BACKTEST_TRIGGER_URL: ${{ secrets.BACKTEST_TRIGGER_URL }}
+          BACKTEST_CRON_TOKEN: ${{ secrets.BACKTEST_CRON_TOKEN }}
+        run: |
+          if [ -z "$BACKTEST_TRIGGER_URL" ]; then
+            echo "Missing BACKTEST_TRIGGER_URL secret"
+            exit 1
+          fi
+
+          if [ -z "$BACKTEST_CRON_TOKEN" ]; then
+            echo "Missing BACKTEST_CRON_TOKEN secret"
+            exit 1
+          fi
+
+          curl -fsS \
+            -H "Authorization: Bearer ${BACKTEST_CRON_TOKEN}" \
+            "$BACKTEST_TRIGGER_URL"

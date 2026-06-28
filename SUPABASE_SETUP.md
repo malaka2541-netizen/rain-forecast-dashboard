@@ -45,6 +45,7 @@ Add these environment variables to the Render web service:
 - `SUPABASE_DB_SCHEMA=public`
 - `BACKTEST_FORECAST_LAT=13.7563`
 - `BACKTEST_FORECAST_LON=100.5018`
+- `BACKTEST_CRON_TOKEN=<your-secret-token>`
 
 Keep the existing TMD variables as they are.
 
@@ -96,6 +97,24 @@ The Render blueprint now includes a cron job that runs:
 every hour at minute `05`.
 
 That means the summary screen can grow automatically over time without someone having to open the dashboard first.
+
+## Automatic hourly updates with GitHub Actions (free option)
+
+This repo also includes:
+
+- `.github/workflows/backtest-hourly.yml`
+
+It can call:
+
+- `/api/backtest/run-cycle`
+
+Recommended setup:
+
+1. Set `BACKTEST_CRON_TOKEN` in Render
+2. Add these GitHub repository secrets:
+   - `BACKTEST_TRIGGER_URL=https://rain-forecast-dashboard-0dub.onrender.com/api/backtest/run-cycle`
+   - `BACKTEST_CRON_TOKEN=<same-secret-token>`
+3. Let GitHub Actions run every hour at minute `07`
 
 ## 5. Verify logging
 

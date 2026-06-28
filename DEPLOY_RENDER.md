@@ -27,6 +27,7 @@ This project can be deployed as a Render Web Service.
    - `SUPABASE_DB_SCHEMA` = optional, default `public`
    - `BACKTEST_FORECAST_LAT` = optional, default `13.7563`
    - `BACKTEST_FORECAST_LON` = optional, default `100.5018`
+   - `BACKTEST_CRON_TOKEN` = recommended secret token for scheduled backtest triggers
    - `OBSERVATION_PROVINCES` = optional, comma-separated AWS provinces for actual-rain ingestion
 
 6. Deploy the service.
@@ -55,6 +56,31 @@ You can also run the steps manually:
 - `python server.py collect-observations`
 - `python server.py run-verification`
 - `python server.py backtest-summary`
+
+## Free alternative with GitHub Actions
+
+If you do not want to pay for Render Cron Jobs yet, this repo also includes:
+
+- `.github/workflows/backtest-hourly.yml`
+
+It triggers the Render endpoint every hour at minute `07` using GitHub Actions.
+
+Required GitHub repository secrets:
+
+- `BACKTEST_TRIGGER_URL` = `https://rain-forecast-dashboard-0dub.onrender.com/api/backtest/run-cycle`
+- `BACKTEST_CRON_TOKEN` = the same secret value you set in Render as `BACKTEST_CRON_TOKEN`
+
+Recommended setup:
+
+1. Add `BACKTEST_CRON_TOKEN` to Render Web Service environment variables.
+2. Add `BACKTEST_TRIGGER_URL` and `BACKTEST_CRON_TOKEN` to GitHub repository secrets.
+3. Push this repo to `main`.
+4. Check the **Actions** tab in GitHub for hourly runs.
+
+Notes:
+
+- GitHub scheduled workflows are a good free option, but they are not as strict as paid cron infrastructure.
+- The workflow can also be started manually with **Run workflow** from the GitHub Actions UI.
 
 ## Daily workflow
 
