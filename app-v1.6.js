@@ -58,6 +58,13 @@ const weatherIconDynamic = document.getElementById("weather-icon-dynamic");
 const dayTabsContainer = document.getElementById("day-tabs");
 const forecastTableBody = document.getElementById("forecast-table-body");
 
+const btnRadarWindy = document.getElementById("btn-radar-windy");
+const btnRadarTmd = document.getElementById("btn-radar-tmd");
+const windyRadarContainer = document.getElementById("windy-radar-container");
+const tmdRadarContainer = document.getElementById("tmd-radar-container");
+const tmdRadarImg = document.getElementById("tmd-radar-img");
+
+
 const loadingOverlay = document.getElementById("loading-overlay");
 const loadingText = document.getElementById("loading-text");
 const openMeteoSourceStatus = document.getElementById("openmeteo-source-status");
@@ -138,12 +145,54 @@ function updateSourceToggleUI() {
 function updateTableIconToggleUI() {
   if (!btnToggleTableIcons) return;
   btnToggleTableIcons.textContent = showTableWeatherIcons
-    ? TABLE_ICONS_ON_TEXT
-    : TABLE_ICONS_OFF_TEXT;
+    ? (currentLang === "zh" ? "隐藏表格图标" : "ซ่อนไอคอนในตาราง")
+    : (currentLang === "zh" ? "显示表格图标" : "แสดงไอคอนในตาราง");
+}
+
+function initRadarToggle() {
+  if (!btnRadarWindy || !btnRadarTmd) return;
+  
+  btnRadarWindy.addEventListener("click", () => {
+    btnRadarWindy.classList.add("active", "btn-primary");
+    btnRadarWindy.style.background = "var(--primary-color)";
+    btnRadarWindy.style.color = "white";
+    
+    btnRadarTmd.classList.remove("active", "btn-primary");
+    btnRadarTmd.style.background = "transparent";
+    btnRadarTmd.style.color = "var(--text-primary)";
+    
+    windyRadarContainer.classList.remove("hidden");
+    tmdRadarContainer.classList.add("hidden");
+  });
+
+  btnRadarTmd.addEventListener("click", () => {
+    btnRadarTmd.classList.add("active", "btn-primary");
+    btnRadarTmd.style.background = "var(--primary-color)";
+    btnRadarTmd.style.color = "white";
+    
+    btnRadarWindy.classList.remove("active", "btn-primary");
+    btnRadarWindy.style.background = "transparent";
+    btnRadarWindy.style.color = "var(--text-primary)";
+    
+    windyRadarContainer.classList.add("hidden");
+    tmdRadarContainer.classList.remove("hidden");
+    
+    // Lazy load the TMD radar image to save bandwidth
+    if (tmdRadarImg && !tmdRadarImg.getAttribute("src")) {
+      tmdRadarImg.setAttribute("src", tmdRadarImg.getAttribute("data-src"));
+      tmdRadarImg.onload = () => {
+        tmdRadarImg.style.opacity = "1";
+        const loadingText = document.getElementById("tmd-loading");
+        if (loadingText) loadingText.style.display = "none";
+      };
+    }
+  });
+}
+
   btnToggleTableIcons.setAttribute("aria-pressed", showTableWeatherIcons ? "true" : "false");
   btnToggleTableIcons.title = showTableWeatherIcons
-    ? TABLE_ICONS_HIDE_TITLE
-    : TABLE_ICONS_SHOW_TITLE;
+    ? (currentLang === "zh" ? "隐藏表格中的天气图标" : "ซ่อนไอคอนสภาพอากาศในตาราง")
+    : (currentLang === "zh" ? "显示表格中的天气图标" : "แสดงไอคอนสภาพอากาศในตาราง");
 }
 
 function setTableIconVisibility(showIcons) {
@@ -1725,6 +1774,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   if (locationCard && locModal) {
+    initRadarToggle();
     locationCard.addEventListener("click", () => {
       // Try to parse existing name into Province and District
       tempLat = currentLat;
