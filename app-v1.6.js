@@ -147,6 +147,10 @@ function updateTableIconToggleUI() {
   btnToggleTableIcons.textContent = showTableWeatherIcons
     ? (currentLang === "zh" ? "隐藏表格图标" : "ซ่อนไอคอนในตาราง")
     : (currentLang === "zh" ? "显示表格图标" : "แสดงไอคอนในตาราง");
+  btnToggleTableIcons.setAttribute("aria-pressed", showTableWeatherIcons ? "true" : "false");
+  btnToggleTableIcons.title = showTableWeatherIcons
+    ? (currentLang === "zh" ? "隐藏表格中的天气图标" : "ซ่อนไอคอนสภาพอากาศในตาราง")
+    : (currentLang === "zh" ? "显示表格中的天气图标" : "แสดงไอคอนสภาพอากาศในตาราง");
 }
 
 function initRadarToggle() {
@@ -189,11 +193,6 @@ function initRadarToggle() {
   });
 }
 
-  btnToggleTableIcons.setAttribute("aria-pressed", showTableWeatherIcons ? "true" : "false");
-  btnToggleTableIcons.title = showTableWeatherIcons
-    ? (currentLang === "zh" ? "隐藏表格中的天气图标" : "ซ่อนไอคอนสภาพอากาศในตาราง")
-    : (currentLang === "zh" ? "显示表格中的天气图标" : "แสดงไอคอนสภาพอากาศในตาราง");
-}
 
 function setTableIconVisibility(showIcons) {
   showTableWeatherIcons = Boolean(showIcons);
