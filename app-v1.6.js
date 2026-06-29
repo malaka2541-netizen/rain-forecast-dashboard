@@ -912,7 +912,7 @@ function formatTmdDateTime(dateTimeString) {
   const date = new Date(safeString);
   if (Number.isNaN(date.getTime())) return "";
 
-  const months = currentLang === "th" ? ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+  const months = currentLang === "th" ? ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."] : ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
   const day = date.getDate();
   const month = months[date.getMonth()];
   const hour = String(date.getHours()).padStart(2, "0");
@@ -2294,39 +2294,52 @@ async function fetchDashboardData() {
 function formatDate(dateString, withYear = true) {
   const parts = dateString.split("-");
   const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
-  
-  const thMonthsShort = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
   const day = dateObj.getDate();
-  const month = thMonthsShort[dateObj.getMonth()];
-  const yearTh = (dateObj.getFullYear() + 543) % 100;
+  const monthIdx = dateObj.getMonth();
   
-  return `${day} ${month} ${yearTh}`;
+  if (currentLang === "zh") {
+    const zhMonths = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
+    return `${dateObj.getFullYear()}年${zhMonths[monthIdx]}${day}日`;
+  } else {
+    const thMonthsShort = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+    const yearTh = (dateObj.getFullYear() + 543) % 100;
+    return `${day} ${thMonthsShort[monthIdx]} ${yearTh}`;
+  }
 }
 
 // Format date for tabs
 function formatDateTab(dateString) {
   const parts = dateString.split("-");
   const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
-  
-  const thDays = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
-  const dayName = thDays[dateObj.getDay()];
   const day = dateObj.getDate();
+  const dayIdx = dateObj.getDay();
   
-  return `${dayName} ${day}`;
+  if (currentLang === "zh") {
+    const zhDays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+    return `${zhDays[dayIdx]} ${day}日`;
+  } else {
+    const thDays = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
+    return `${thDays[dayIdx]} ${day}`;
+  }
 }
 
 function formatDateContext(dateString) {
   const parts = dateString.split("-");
   const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
-  const thDays = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
-  const thMonthsShort = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
-
-  const dayName = thDays[dateObj.getDay()];
   const day = dateObj.getDate();
-  const month = thMonthsShort[dateObj.getMonth()];
-  const yearTh = (dateObj.getFullYear() + 543) % 100;
-
-  return `${dayName} ${day} ${month} ${yearTh}`;
+  const dayIdx = dateObj.getDay();
+  const monthIdx = dateObj.getMonth();
+  
+  if (currentLang === "zh") {
+    const zhDays = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
+    const zhMonths = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
+    return `${dateObj.getFullYear()}年${zhMonths[monthIdx]}${day}日 (${zhDays[dayIdx]})`;
+  } else {
+    const thDays = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
+    const thMonthsShort = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+    const yearTh = (dateObj.getFullYear() + 543) % 100;
+    return `${thDays[dayIdx]} ${day} ${thMonthsShort[monthIdx]} ${yearTh}`;
+  }
 }
 
 // Show loading overlay
