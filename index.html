@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-  <link rel="stylesheet" href="style-v1.6.css?v=7">
+  <link rel="stylesheet" href="style-v1.6.css?v=8">
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -37,13 +37,17 @@
       </div>
 
       <div class="header-actions">
+        <button id="btn-toggle-lang" class="btn btn-secondary" type="button" aria-label="Toggle Language" title="สลับภาษา / 切换语言">
+          <i class="fa-solid fa-globe"></i>
+          <span id="lang-indicator">TH</span>
+        </button>
         <button id="btn-open-accuracy" class="btn btn-secondary" type="button">
           <i class="fa-solid fa-chart-simple"></i>
-          สถิติความแม่น
+          <span data-i18n="btn-stats">สถิติความแม่น</span>
         </button>
         <button id="btn-open-guide" class="btn btn-secondary" type="button">
           <i class="fa-solid fa-circle-question"></i>
-          วิธีอ่านข้อมูล
+          <span data-i18n="btn-guide">วิธีอ่านข้อมูล</span>
         </button>
       </div>
     </header>
@@ -54,9 +58,9 @@
       </div>
       <div class="forecast-source-toolbar">
         <div class="forecast-source-meta">
-          <span class="forecast-source-label">ชุดข้อมูลที่กำลังแสดง</span>
+          <span class="forecast-source-label" data-i18n="source-label">ชุดข้อมูลที่กำลังแสดง</span>
           <strong id="active-source-title">Open-Meteo 10 วัน</strong>
-          <span id="active-source-caption">ใช้เป็นข้อมูลหลักสำหรับมุมมองรายชั่วโมงและรายวัน</span>
+          <span id="active-source-caption" data-i18n="source-caption">ใช้เป็นข้อมูลหลักสำหรับมุมมองรายชั่วโมงและรายวัน</span>
         </div>
         <div class="forecast-source-switch" role="tablist" aria-label="เลือกชุดข้อมูลพยากรณ์">
           <button id="btn-source-openmeteo" class="source-switch-btn active" type="button" aria-pressed="true">Open-Meteo 10 วัน</button>
@@ -75,7 +79,7 @@
             </div>
             <div class="temp-display">
               <span id="forecast-avg-percent">54%</span>
-              <span id="forecast-current-label" class="label">โอกาสฝนตอนนี้</span>
+              <span id="forecast-current-label" class="label" data-i18n="current-prob">โอกาสฝนตอนนี้</span>
             </div>
           </div>
           <div class="location-details">
@@ -103,7 +107,7 @@
         <div class="radar-card glass-card">
           <div class="radar-hint">
             <i class="fa-solid fa-hand-pointer"></i>
-            <span>แตะการ์ดซ้ายเพื่อเปลี่ยนพิกัดพยากรณ์</span>
+            <span data-i18n="radar-hint">แตะการ์ดซ้ายเพื่อเปลี่ยนพิกัดพยากรณ์</span>
           </div>
           <iframe id="windy-radar" src="about:blank" allowfullscreen></iframe>
           <div class="radar-overlay"></div>
@@ -113,12 +117,12 @@
         <div class="alert-card glass-card">
           <div class="kpi-card-main">
             <div class="kpi-info kpi-alert-info">
-              <h3>แจ้งเตือน / ประกาศ TMD</h3>
+              <h3 data-i18n="alert-tmd">แจ้งเตือน / ประกาศ TMD</h3>
               <p id="kpi-alert-headline">กำลังตรวจสอบ</p>
               <span id="kpi-alert-detail">ดึงข้อมูลล่าสุดจาก TMD</span>
               <div class="kpi-alert-inline">
                 <a id="kpi-alert-link" href="#" target="_blank" class="btn-alert-link hidden" title="เปิดเอกสารประกาศฉบับเต็มจาก TMD">
-                  <i class="fa-solid fa-file-pdf"></i> อ่านประกาศฉบับเต็ม
+                  <i class="fa-solid fa-file-pdf"></i> <span data-i18n="alert-read-full">อ่านประกาศฉบับเต็ม</span>
                 </a>
                 <strong id="kpi-intensity">ฝนหนัก</strong>
                 <span id="kpi-intensity-detail">17:00 | 4.9 มม. | ลม 28 กม./ชม.</span>
@@ -138,7 +142,7 @@
 
       <div class="chart-card glass-card">
         <div class="chart-header">
-          <h2><i class="fa-solid fa-chart-line"></i> แนวโน้มพยากรณ์รายชั่วโมง</h2>
+          <h2><i class="fa-solid fa-chart-line"></i> <span data-i18n="chart-title">แนวโน้มพยากรณ์รายชั่วโมง</span></h2>
           <div id="day-tabs" class="day-tabs"></div>
         </div>
         <div class="chart-wrapper">
@@ -148,12 +152,12 @@
 
       <div class="table-card glass-card">
         <div class="table-header">
-          <h2><i class="fa-solid fa-table"></i> ตารางแสดงโอกาสเกิดฝนรายชั่วโมง</h2>
+          <h2><i class="fa-solid fa-table"></i> <span data-i18n="table-title">ตารางแสดงโอกาสเกิดฝนรายชั่วโมง</span></h2>
           <div class="legend-badges">
-            <span class="legend-badge badge-low"><i class="fa-solid fa-circle"></i> น้อย (0-40%)</span>
-            <span class="legend-badge badge-med"><i class="fa-solid fa-circle"></i> ปานกลาง (41-70%)</span>
-            <span class="legend-badge badge-high"><i class="fa-solid fa-circle"></i> สูง (71-90%)</span>
-            <span class="legend-badge badge-very-high"><i class="fa-solid fa-circle"></i> สูงมาก (91-100%)</span>
+            <span class="legend-badge badge-low"><i class="fa-solid fa-circle"></i> <span data-i18n="legend-low">น้อย (0-40%)</span></span>
+            <span class="legend-badge badge-med"><i class="fa-solid fa-circle"></i> <span data-i18n="legend-med">ปานกลาง (41-70%)</span></span>
+            <span class="legend-badge badge-high"><i class="fa-solid fa-circle"></i> <span data-i18n="legend-high">สูง (71-90%)</span></span>
+            <span class="legend-badge badge-very-high"><i class="fa-solid fa-circle"></i> <span data-i18n="legend-very-high">สูงมาก (91-100%)</span></span>
           </div>
         </div>
         <div class="table-responsive">
@@ -192,19 +196,19 @@
         </div>
         
         <div class="forecast-reliability-note">
-          <h4><i class="fa-solid fa-circle-info"></i> ระดับความน่าเชื่อถือของข้อมูล</h4>
+          <h4><i class="fa-solid fa-circle-info"></i> <span data-i18n="reliability-title">ระดับความน่าเชื่อถือของข้อมูล</span></h4>
           <div class="reliability-levels">
             <div class="r-level high">
               <span class="r-badge"><i class="fa-solid fa-circle-check" style="color: #4ade80;"></i> 1-2 วัน</span>
-              <p>ความน่าเชื่อถือ <strong>สูง</strong>: ข้อมูลค่อนข้างนิ่ง สามารถใช้ตัดสินใจและเตรียมการได้</p>
+              <p data-i18n="rel-high-desc">ความน่าเชื่อถือ <strong>สูง</strong>: ข้อมูลค่อนข้างนิ่ง สามารถใช้ตัดสินใจและเตรียมการได้</p>
             </div>
             <div class="r-level medium">
               <span class="r-badge"><i class="fa-solid fa-circle-exclamation" style="color: #fbbf24;"></i> 3-5 วัน</span>
-              <p>ความน่าเชื่อถือ <strong>ปานกลาง</strong>: ใช้ดู <strong>"แนวโน้ม"</strong> เพื่อวางแผนงานคร่าวๆ ล่วงหน้า</p>
+              <p data-i18n="rel-med-desc">ความน่าเชื่อถือ <strong>ปานกลาง</strong>: ใช้ดู <strong>"แนวโน้ม"</strong> เพื่อวางแผนงานคร่าวๆ ล่วงหน้า</p>
             </div>
             <div class="r-level low">
               <span class="r-badge"><i class="fa-solid fa-triangle-exclamation" style="color: #f97316;"></i> 6-10 วัน</span>
-              <p>ความน่าเชื่อถือ <strong>ต่ำ</strong>: เป็นเพียงการคาดเดาระยะยาว ข้อมูลพลิกผันได้เสมอ <strong>ไม่ควรใช้ตัดสินใจเรื่องสำคัญ</strong></p>
+              <p data-i18n="rel-low-desc">ความน่าเชื่อถือ <strong>ต่ำ</strong>: เป็นเพียงการคาดเดาระยะยาว ข้อมูลพลิกผันได้เสมอ <strong>ไม่ควรใช้ตัดสินใจเรื่องสำคัญ</strong></p>
             </div>
           </div>
         </div>
@@ -219,11 +223,11 @@
   <div id="location-modal" class="modal-overlay hidden">
     <div class="modal-card animate-modal">
       <div class="modal-header">
-        <h2><i class="fa-solid fa-map-location-dot"></i> ตั้งค่าสถานที่</h2>
+        <h2><i class="fa-solid fa-map-location-dot"></i> <span data-i18n="modal-loc-title">ตั้งค่าสถานที่</span></h2>
       </div>
       <div class="modal-body">
         <div class="input-group">
-          <label>จังหวัด (Province)</label>
+          <label data-i18n="label-prov">จังหวัด (Province)</label>
           <div class="input-with-icon">
             <i class="fa-solid fa-map"></i>
             <input type="text" id="input-province" placeholder="พิมพ์ชื่อจังหวัด..." list="province-list" autocomplete="off">
@@ -231,12 +235,12 @@
           </div>
         </div>
         <div class="input-group" style="margin-top: 1rem;">
-          <label>อำเภอ (District)</label>
+          <label data-i18n="label-dist">อำเภอ (District)</label>
           <div style="display: flex; gap: 0.5rem;">
             <div class="input-with-icon" style="flex: 1;">
               <i class="fa-solid fa-location-dot"></i>
               <select id="input-district" disabled style="width: 100%; padding: 0.65rem 0.85rem; padding-left: 36px; background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-main); border-radius: 10px; font-size: 0.9rem; font-family: var(--font-main); outline: none; transition: border-color 0.2s; appearance: none; -webkit-appearance: none;">
-                <option value="">กรุณาเลือกจังหวัดก่อน</option>
+                <option value="" data-i18n="select-prov-first">กรุณาเลือกจังหวัดก่อน</option>
               </select>
             </div>
             <button id="btn-search-map" style="padding: 0 1rem; border-radius: 10px; border: none; background: var(--primary); color: white; cursor: pointer; transition: 0.2s;" title="อัปเดตหมุดบนแผนที่">
@@ -246,7 +250,7 @@
         </div>
 
         <div class="map-wrapper" style="margin-top: 1.5rem;">
-          <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.9rem; color: var(--text-main);">ปักหมุดบนแผนที่ (คลิกเพื่อเลือกพิกัด)</label>
+          <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.9rem; color: var(--text-main);" data-i18n="map-pin-hint">ปักหมุดบนแผนที่ (คลิกเพื่อเลือกพิกัด)</label>
           <div id="map-container" style="height: 250px; width: 100%; border-radius: 8px; border: 1px solid var(--input-border); z-index: 1;"></div>
         </div>
 
@@ -255,8 +259,8 @@
         <input type="hidden" id="input-loc-name">
       </div>
       <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid var(--card-border);">
-        <button id="btn-cancel-loc" style="padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid var(--card-border); background: var(--input-bg); color: var(--text-main); cursor: pointer;">ยกเลิก</button>
-        <button id="btn-save-loc" style="padding: 0.5rem 1rem; border-radius: 8px; border: none; background: var(--primary); color: white; cursor: pointer; font-weight: bold;">บันทึกพิกัด</button>
+        <button id="btn-cancel-loc" style="padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid var(--card-border); background: var(--input-bg); color: var(--text-main); cursor: pointer;"><span data-i18n="btn-cancel">ยกเลิก</span></button>
+        <button id="btn-save-loc" style="padding: 0.5rem 1rem; border-radius: 8px; border: none; background: var(--primary); color: white; cursor: pointer; font-weight: bold;"><span data-i18n="btn-save-loc">บันทึกพิกัด</span></button>
       </div>
     </div>
   </div>
@@ -264,7 +268,7 @@
   <div id="guide-modal" class="modal-overlay hidden">
     <div class="modal-card animate-modal">
       <div class="modal-header">
-        <h2><i class="fa-solid fa-circle-question"></i> วิธีอ่านข้อมูลพยากรณ์</h2>
+        <h2><i class="fa-solid fa-circle-question"></i> <span data-i18n="modal-guide-title">วิธีอ่านข้อมูลพยากรณ์</span></h2>
         <button id="btn-close-guide-header" class="btn-icon" type="button" aria-label="ปิดหน้าต่างวิธีอ่านข้อมูล">
           <i class="fa-solid fa-xmark"></i>
         </button>
@@ -309,7 +313,7 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button id="btn-close-guide" class="btn btn-primary" type="button">เข้าใจแล้ว</button>
+        <button id="btn-close-guide" class="btn btn-primary" type="button"><span data-i18n="btn-understand">เข้าใจแล้ว</span></button>
       </div>
     </div>
   </div>
@@ -317,7 +321,7 @@
   <div id="comparison-modal" class="modal-overlay hidden">
     <div class="modal-card animate-modal">
       <div class="modal-header">
-        <h2><i class="fa-solid fa-code-compare"></i> เปรียบเทียบข้อมูลพยากรณ์</h2>
+        <h2><i class="fa-solid fa-code-compare"></i> <span data-i18n="modal-compare-title">เปรียบเทียบข้อมูลพยากรณ์</span></h2>
         <button id="btn-close-comparison-header" class="btn-icon" type="button" aria-label="ปิดหน้าต่างเปรียบเทียบ">
           <i class="fa-solid fa-xmark"></i>
         </button>
@@ -329,7 +333,7 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button id="btn-close-comparison" class="btn btn-primary" type="button">ปิด</button>
+        <button id="btn-close-comparison" class="btn btn-primary" type="button"><span data-i18n="btn-close">ปิด</span></button>
       </div>
     </div>
   </div>
@@ -337,57 +341,57 @@
   <div id="accuracy-modal" class="modal-overlay hidden">
     <div class="modal-card animate-modal accuracy-modal-card">
       <div class="modal-header">
-        <h2><i class="fa-solid fa-chart-simple"></i> สถิติความแม่นย้อนหลัง</h2>
+        <h2><i class="fa-solid fa-chart-simple"></i> <span data-i18n="modal-stats-title">สถิติความแม่นย้อนหลัง</span></h2>
         <button id="btn-close-accuracy-header" class="btn-icon" type="button" aria-label="ปิดหน้าต่างสถิติความแม่น">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
       <div class="modal-body">
-        <div id="accuracy-loading" class="accuracy-loading">กำลังโหลดสถิติ...</div>
+        <div id="accuracy-loading" class="accuracy-loading" data-i18n="loading-stats">กำลังโหลดสถิติ...</div>
         <div id="accuracy-content" class="accuracy-content hidden">
           <div class="accuracy-grid">
             <div class="accuracy-stat-card">
-              <span class="accuracy-stat-label">จำนวนจุดตรวจย้อนหลัง</span>
+              <span class="accuracy-stat-label" data-i18n="stat-total-checks">จำนวนจุดตรวจย้อนหลัง</span>
               <strong id="accuracy-total-checks">-</strong>
             </div>
             <div class="accuracy-stat-card">
-              <span class="accuracy-stat-label">อัตราฝนตกจริง</span>
+              <span class="accuracy-stat-label" data-i18n="stat-hit-rate">อัตราฝนตกจริง</span>
               <strong id="accuracy-rain-hit-rate">-</strong>
             </div>
             <div class="accuracy-stat-card">
-              <span class="accuracy-stat-label">คลาดเคลื่อนฝนเฉลี่ย</span>
+              <span class="accuracy-stat-label" data-i18n="stat-avg-error">คลาดเคลื่อนฝนเฉลี่ย</span>
               <strong id="accuracy-avg-error">-</strong>
             </div>
             <div class="accuracy-stat-card">
-              <span class="accuracy-stat-label">ระดับความน่าเชื่อถือ</span>
+              <span class="accuracy-stat-label" data-i18n="stat-confidence">ระดับความน่าเชื่อถือ</span>
               <strong id="accuracy-confidence">-</strong>
             </div>
           </div>
 
           <div class="accuracy-summary-block">
-            <h3>สรุปแบบอ่านเร็ว</h3>
+            <h3 data-i18n="stat-summary-title">สรุปแบบอ่านเร็ว</h3>
             <p id="accuracy-summary-text">-</p>
             <p id="accuracy-period-text" class="accuracy-subtext">-</p>
             <p id="accuracy-updated-text" class="accuracy-subtext">-</p>
           </div>
 
           <div class="accuracy-section">
-            <h3>แยกตามระดับโอกาสฝน</h3>
+            <h3 data-i18n="stat-breakdown-prob">แยกตามระดับโอกาสฝน</h3>
             <div id="accuracy-probability-breakdown" class="accuracy-breakdown-list"></div>
           </div>
 
           <div class="accuracy-section">
-            <h3>แยกตามแหล่งข้อมูล (Source)</h3>
+            <h3 data-i18n="stat-breakdown-source">แยกตามแหล่งข้อมูล (Source)</h3>
             <div id="accuracy-source-breakdown" class="accuracy-breakdown-list"></div>
           </div>
 
           <div class="accuracy-section">
-            <h3>แยกตามช่วงเวลาล่วงหน้า (Lead Time)</h3>
+            <h3 data-i18n="stat-breakdown-lead">แยกตามช่วงเวลาล่วงหน้า (Lead Time)</h3>
             <div id="accuracy-lead-time-breakdown" class="accuracy-breakdown-list"></div>
           </div>
 
           <div class="accuracy-section">
-            <h3>แยกตามความแรงฝนที่ตรวจจริง</h3>
+            <h3 data-i18n="stat-breakdown-intensity">แยกตามความแรงฝนที่ตรวจจริง</h3>
             <div id="accuracy-intensity-breakdown" class="accuracy-breakdown-list"></div>
           </div>
 
@@ -396,7 +400,7 @@
         <div id="accuracy-error" class="alert alert-warning hidden"></div>
       </div>
       <div class="modal-footer">
-        <button id="btn-close-accuracy" class="btn btn-primary" type="button">ปิด</button>
+        <button id="btn-close-accuracy" class="btn btn-primary" type="button"><span data-i18n="btn-close">ปิด</span></button>
       </div>
     </div>
   </div>
@@ -404,10 +408,11 @@
   <div id="loading-overlay" class="modal-overlay hidden">
     <div class="loading-spinner-wrapper">
       <div class="loading-spinner"></div>
-      <p id="loading-text">กำลังประมวลผลข้อมูล...</p>
+      <p id="loading-text" data-i18n="loading-processing">กำลังประมวลผลข้อมูล...</p>
     </div>
   </div>
 
-  <script src="app-v1.6.js?v=13"></script>
+  <script src="i18n.js?v=1"></script>
+  <script src="app-v1.6.js?v=14"></script>
 </body>
 </html>

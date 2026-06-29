@@ -16,10 +16,10 @@ let selectedDate = "";
 let forecastChartInstance = null;
 let tmdAdvisoryState = null;
 let showTableWeatherIcons = localStorage.getItem("showTableWeatherIcons") !== "false";
-const TABLE_ICONS_ON_TEXT = "สัญลักษณ์: เปิด";
-const TABLE_ICONS_OFF_TEXT = "สัญลักษณ์: ปิด";
-const TABLE_ICONS_HIDE_TITLE = "กดเพื่อซ่อนสัญลักษณ์สภาพอากาศและจุดสีในตาราง";
-const TABLE_ICONS_SHOW_TITLE = "กดเพื่อแสดงสัญลักษณ์สภาพอากาศและจุดสีในตาราง";
+const TABLE_ICONS_ON_TEXT = t("table-icons-on");
+const TABLE_ICONS_OFF_TEXT = t("table-icons-off");
+const TABLE_ICONS_HIDE_TITLE = t("table-icons-hide-title");
+const TABLE_ICONS_SHOW_TITLE = t("table-icons-show-title");
 let sourceComparisonState = {
   activeSource: localStorage.getItem("forecastSource") === "openweather" ? "openweather" : "openmeteo",
   openMeteoData: [],
@@ -720,7 +720,7 @@ function openComparisonModal(dateStr, hour) {
     }
   }
 
-  comparisonTimeTitle.textContent = `เปรียบเทียบข้อมูล: ${formatDateThai(dateStr)} ${hour} น.`;
+  comparisonTimeTitle.textContent = `เปรียบเทียบข้อมูล: ${formatDate(dateStr)} ${hour} น.`;
 
   let html = '';
   
@@ -912,7 +912,7 @@ function formatTmdDateTime(dateTimeString) {
   const date = new Date(safeString);
   if (Number.isNaN(date.getTime())) return "";
 
-  const months = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+  const months = currentLang === "th" ? ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
   const day = date.getDate();
   const month = months[date.getMonth()];
   const hour = String(date.getHours()).padStart(2, "0");
@@ -1341,52 +1341,28 @@ function buildBacktestSummaryNarrative(summary, confidenceFlags = []) {
   return `ตอนนี้ระบบตรวจเทียบแล้ว ${totalChecks} จุดตรวจ พบฝนตกจริง ${rainRate.toFixed(1)}% ของจุดที่เก็บ และมีค่าคลาดเคลื่อนปริมาณฝนเฉลี่ย ${avgError.toFixed(3)} มม. ระดับการอ่านผลตอนนี้คือ "${confidenceLabel}"`;
 }
 
-function getProbabilityBucketThai(key) {
-  const map = {
-    low: "โอกาสฝนน้อย",
-    medium: "โอกาสฝนปานกลาง",
-    high: "โอกาสฝนสูง",
-    "very-high": "โอกาสฝนสูงมาก",
-    unknown: "ไม่ระบุช่วง"
-  };
-  return map[key] || key;
+function getProbabilityBucket(key) {
+  const tk = "prob-" + key;
+  const val = t(tk);
+  return val === tk ? key : val;
 }
 
-function getIntensityThai(key) {
-  const map = {
-    none: "ไม่พบฝน",
-    drizzle: "ฝนปรอย/เบามาก",
-    light: "ฝนเบา",
-    moderate: "ฝนปานกลาง",
-    heavy: "ฝนหนัก",
-    "very-heavy": "ฝนหนักมาก",
-    severe: "ฝนรุนแรงมาก",
-    unknown: "ไม่ระบุระดับ"
-  };
-  return map[key] || key;
+function getIntensity(key) {
+  const tk = "int-" + key;
+  const val = t(tk);
+  return val === tk ? key : val;
 }
 
-function getSourceThai(key) {
-  const map = {
-    openmeteo: "Open-Meteo",
-    openweather: "OpenWeather",
-    unknown: "ไม่ระบุ"
-  };
-  return map[key] || key;
+function getSource(key) {
+  const tk = "src-" + key;
+  const val = t(tk);
+  return val === tk ? key : val;
 }
 
-function getLeadTimeThai(key) {
-  const map = {
-    "0-6h": "0 - 6 ชั่วโมง",
-    "6-12h": "6 - 12 ชั่วโมง",
-    "12-24h": "12 - 24 ชั่วโมง",
-    "24-48h": "24 - 48 ชั่วโมง",
-    "48-72h": "48 - 72 ชั่วโมง",
-    "72h+": "มากกว่า 72 ชั่วโมง",
-    "past": "ข้อมูลในอดีต",
-    "unknown": "ไม่ระบุ"
-  };
-  return map[key] || key;
+function getLeadTime(key) {
+  const tk = "lt-" + key;
+  const val = t(tk);
+  return val === tk ? key : val;
 }
 
 function buildBreakdownHtml(breakdown = {}, labelFormatter) {
@@ -1442,10 +1418,10 @@ async function openAccuracyModal() {
     accuracySummaryText.textContent = buildBacktestSummaryNarrative(summary, confidenceFlags);
     accuracyPeriodText.textContent = `ช่วงข้อมูลตรวจจริง: ${formatBacktestDateTime(summary.observed_start)} ถึง ${formatBacktestDateTime(summary.observed_end)}`;
     accuracyUpdatedText.textContent = `อัปเดตล่าสุด: ${formatBacktestDateTime(summary.latest_updated_at)}`;
-    accuracyProbabilityBreakdown.innerHTML = buildBreakdownHtml(payload.probability_breakdown, getProbabilityBucketThai);
-    accuracyIntensityBreakdown.innerHTML = buildBreakdownHtml(payload.rain_intensity_breakdown, getIntensityThai);
-    accuracySourceBreakdown.innerHTML = buildBreakdownHtml(payload.source_breakdown, getSourceThai);
-    accuracyLeadTimeBreakdown.innerHTML = buildBreakdownHtml(payload.lead_time_breakdown, getLeadTimeThai);
+    accuracyProbabilityBreakdown.innerHTML = buildBreakdownHtml(payload.probability_breakdown, getProbabilityBucket);
+    accuracyIntensityBreakdown.innerHTML = buildBreakdownHtml(payload.rain_intensity_breakdown, getIntensity);
+    accuracySourceBreakdown.innerHTML = buildBreakdownHtml(payload.source_breakdown, getSource);
+    accuracyLeadTimeBreakdown.innerHTML = buildBreakdownHtml(payload.lead_time_breakdown, getLeadTime);
 
     const notes = [];
     if (confidenceFlags.includes("sample-small")) {
@@ -1478,6 +1454,27 @@ async function openAccuracyModal() {
 
 // Initialize application
 document.addEventListener("DOMContentLoaded", () => {
+  const btnToggleLang = document.getElementById("btn-toggle-lang");
+  if (btnToggleLang) {
+    btnToggleLang.addEventListener("click", () => {
+      toggleLanguage();
+      // Re-render UI components that rely on language
+      updateSourceToggleUI();
+      updateTableIconToggleUI();
+      if (activeForecastData && activeForecastData.length > 0) {
+        updateCurrentWeatherUI(activeForecastData[0]);
+        renderForecastChart(activeForecastData);
+        renderForecastTable(activeForecastData);
+      }
+      renderSourceComparison();
+      
+      // If we have an active TMD alert, it will re-translate on next fetch, but we can do a quick refetch
+      if (typeof fetchDashboardData === 'function' && tmdAdvisoryState) {
+        // Just re-displaying it is enough if we call the update func, but here we can just let it be or force update
+      }
+    });
+  }
+
   if (btnCloseComparisonHeader) {
     btnCloseComparisonHeader.addEventListener("click", () => comparisonModal.classList.add("hidden"));
   }
@@ -1904,7 +1901,7 @@ function renderTable() {
       }
     }
     
-    dateCell.innerHTML = `${indicatorHtml}${formatDateThai(day.date)}`;
+    dateCell.innerHTML = `${indicatorHtml}${formatDate(day.date)}`;
     dateCell.style.whiteSpace = "nowrap";
     row.appendChild(dateCell);
     
@@ -2294,7 +2291,7 @@ async function fetchDashboardData() {
 }
 
 // Utility formatting functions
-function formatDateThai(dateString) {
+function formatDate(dateString, withYear = true) {
   const parts = dateString.split("-");
   const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
   
