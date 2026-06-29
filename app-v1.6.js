@@ -158,12 +158,12 @@ function initRadarToggle() {
   
   btnRadarWindy.addEventListener("click", () => {
     btnRadarWindy.classList.add("active", "btn-primary");
-    btnRadarWindy.style.background = "var(--primary-color)";
+    btnRadarWindy.style.background = "var(--primary)";
     btnRadarWindy.style.color = "white";
     
     btnRadarTmd.classList.remove("active", "btn-primary");
     btnRadarTmd.style.background = "transparent";
-    btnRadarTmd.style.color = "var(--text-primary)";
+    btnRadarTmd.style.color = "var(--text-main)";
     
     windyRadarContainer.classList.remove("hidden");
     tmdRadarContainer.classList.add("hidden");
@@ -171,12 +171,12 @@ function initRadarToggle() {
 
   btnRadarTmd.addEventListener("click", () => {
     btnRadarTmd.classList.add("active", "btn-primary");
-    btnRadarTmd.style.background = "var(--primary-color)";
+    btnRadarTmd.style.background = "var(--primary)";
     btnRadarTmd.style.color = "white";
     
     btnRadarWindy.classList.remove("active", "btn-primary");
     btnRadarWindy.style.background = "transparent";
-    btnRadarWindy.style.color = "var(--text-primary)";
+    btnRadarWindy.style.color = "var(--text-main)";
     
     windyRadarContainer.classList.add("hidden");
     tmdRadarContainer.classList.remove("hidden");
