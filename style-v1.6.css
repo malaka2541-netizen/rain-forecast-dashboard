@@ -1352,6 +1352,11 @@ select:focus {
   color: var(--high-text);
 }
 
+.badge-very-high {
+  background: var(--very-high-bg);
+  color: var(--very-high-text);
+}
+
 .table-responsive {
   width: 100%;
   overflow-x: auto;
