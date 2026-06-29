@@ -60,9 +60,12 @@ const forecastTableBody = document.getElementById("forecast-table-body");
 
 const btnRadarWindy = document.getElementById("btn-radar-windy");
 const btnRadarTmd = document.getElementById("btn-radar-tmd");
+const btnRadarBma = document.getElementById("btn-radar-bma");
 const windyRadarContainer = document.getElementById("windy-radar-container");
 const tmdRadarContainer = document.getElementById("tmd-radar-container");
 const tmdRadarImg = document.getElementById("tmd-radar-img");
+const bmaRadarContainer = document.getElementById("bma-radar-container");
+const bmaRadarIframe = document.getElementById("bma-radar-iframe");
 
 
 const loadingOverlay = document.getElementById("loading-overlay");
@@ -183,32 +186,33 @@ async function fetchTmdRadarTimestamp() {
 }
 
 function initRadarToggle() {
-  if (!btnRadarWindy || !btnRadarTmd) return;
+  if (!btnRadarWindy || !btnRadarTmd || !btnRadarBma) return;
+  
+  function resetRadarButtons() {
+    [btnRadarWindy, btnRadarTmd, btnRadarBma].forEach(btn => {
+      btn.classList.remove("active", "btn-primary");
+      btn.style.background = "transparent";
+      btn.style.color = "var(--text-main)";
+    });
+    windyRadarContainer.classList.add("hidden");
+    tmdRadarContainer.classList.add("hidden");
+    bmaRadarContainer.classList.add("hidden");
+  }
+
+  function setActiveRadar(btn, container) {
+    resetRadarButtons();
+    btn.classList.add("active", "btn-primary");
+    btn.style.background = "var(--primary)";
+    btn.style.color = "white";
+    container.classList.remove("hidden");
+  }
   
   btnRadarWindy.addEventListener("click", () => {
-    btnRadarWindy.classList.add("active", "btn-primary");
-    btnRadarWindy.style.background = "var(--primary)";
-    btnRadarWindy.style.color = "white";
-    
-    btnRadarTmd.classList.remove("active", "btn-primary");
-    btnRadarTmd.style.background = "transparent";
-    btnRadarTmd.style.color = "var(--text-main)";
-    
-    windyRadarContainer.classList.remove("hidden");
-    tmdRadarContainer.classList.add("hidden");
+    setActiveRadar(btnRadarWindy, windyRadarContainer);
   });
 
   btnRadarTmd.addEventListener("click", () => {
-    btnRadarTmd.classList.add("active", "btn-primary");
-    btnRadarTmd.style.background = "var(--primary)";
-    btnRadarTmd.style.color = "white";
-    
-    btnRadarWindy.classList.remove("active", "btn-primary");
-    btnRadarWindy.style.background = "transparent";
-    btnRadarWindy.style.color = "var(--text-main)";
-    
-    windyRadarContainer.classList.add("hidden");
-    tmdRadarContainer.classList.remove("hidden");
+    setActiveRadar(btnRadarTmd, tmdRadarContainer);
     
     // Lazy load the TMD radar image to save bandwidth
     if (tmdRadarImg && !tmdRadarImg.getAttribute("src")) {
@@ -218,9 +222,21 @@ function initRadarToggle() {
         const loadingText = document.getElementById("tmd-loading");
         if (loadingText) loadingText.style.display = "none";
       };
-      
       // Fetch timestamp for the first time
       fetchTmdRadarTimestamp();
+    }
+  });
+
+  btnRadarBma.addEventListener("click", () => {
+    setActiveRadar(btnRadarBma, bmaRadarContainer);
+    
+    // Lazy load the BMA radar iframe
+    if (bmaRadarIframe && bmaRadarIframe.getAttribute("src") !== bmaRadarIframe.getAttribute("data-src")) {
+      bmaRadarIframe.setAttribute("src", bmaRadarIframe.getAttribute("data-src"));
+      bmaRadarIframe.onload = () => {
+        const loadingText = document.getElementById("bma-loading");
+        if (loadingText) loadingText.style.display = "none";
+      };
     }
   });
 }

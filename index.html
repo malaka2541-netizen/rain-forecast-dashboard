@@ -113,6 +113,7 @@
             <div class="radar-toggle" style="display: flex; gap: 0.5rem; font-size: 0.8rem; background: var(--bg-hover); padding: 0.25rem; border-radius: 20px;">
               <button id="btn-radar-windy" class="btn-radar-switch active" style="border: none; background: var(--primary); color: white; padding: 0.2rem 0.6rem; border-radius: 12px; cursor: pointer; font-weight: 600;" data-i18n="radar-source-windy">Windy</button>
               <button id="btn-radar-tmd" class="btn-radar-switch" style="border: none; background: transparent; color: var(--text-main); padding: 0.2rem 0.6rem; border-radius: 12px; cursor: pointer; font-weight: 600;" data-i18n="radar-source-tmd">TMD Radar</button>
+              <button id="btn-radar-bma" class="btn-radar-switch" style="border: none; background: transparent; color: var(--text-main); padding: 0.2rem 0.6rem; border-radius: 12px; cursor: pointer; font-weight: 600;" data-i18n="radar-source-bma">BMA Radar</button>
             </div>
           </div>
           
@@ -127,6 +128,11 @@
             <div id="tmd-timestamp-overlay" class="hidden" style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.65); color: white; padding: 4px 10px; border-radius: 6px; z-index: 10; font-size: 0.75rem; font-weight: 500; backdrop-filter: blur(4px);">
               <i class="fa-regular fa-clock"></i> <span data-i18n="tmd-radar-updated">อัปเดตล่าสุด:</span> <span id="tmd-timestamp-text">...</span>
             </div>
+          </div>
+          
+          <div id="bma-radar-container" class="hidden" style="width: 100%; height: calc(100% - 45px); position: relative; background: #fff; overflow: hidden;">
+            <div id="bma-loading" style="position: absolute; color: #333; font-size: 0.9rem; top: 50%; left: 50%; transform: translate(-50%, -50%);">Loading BMA Radar...</div>
+            <iframe id="bma-radar-iframe" data-src="https://weather.bangkok.go.th/radar/RadarAnimationNk.aspx" style="width: 100%; height: 100%; border: none; position: relative; z-index: 2;"></iframe>
           </div>
         </div>
 
@@ -440,7 +446,7 @@
   </div>
 
   <link rel="stylesheet" href="style-v1.6.css?v=2.6" />
-  <script src="i18n.js?v=1.7"></script>
-  <script src="app-v1.6.js?v=2.2" defer></script>
+  <script src="i18n.js?v=1.8"></script>
+  <script src="app-v1.6.js?v=2.3" defer></script>
 </body>
 </html>
