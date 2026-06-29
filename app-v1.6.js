@@ -1907,11 +1907,13 @@ function renderTable() {
     row.appendChild(dateCell);
     
     // Render 24 cells for all hours, each with colspan="1"
-    const sortedHours = Object.keys(day.values).sort();
-    sortedHours.forEach(hour => {
+    for (let i = 0; i < 24; i++) {
+      const hourNumStr = i.toString().padStart(2, '0');
+      const hour = `${hourNumStr}:00`;
+      
       const cell = document.createElement("td");
       const entry = day.values[hour];
-      const val = getEntryProbability(entry);
+      const val = entry ? getEntryProbability(entry) : null;
       
       if (val === null || val === undefined) {
         cell.innerText = "-";
@@ -1982,7 +1984,7 @@ function renderTable() {
         }
       }
       row.appendChild(cell);
-    });
+    }
     
     forecastTableBody.appendChild(row);
   });
