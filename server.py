@@ -849,6 +849,8 @@ def build_verification_rows() -> tuple[list[dict[str, Any]], dict[str, Any]]:
                 "probability_bucket": build_probability_bucket(
                     forecast_point.get("precipitation_probability")
                 ),
+                "forecast_probability": forecast_point.get("precipitation_probability"),
+                "matched_distance_km": round(best_distance, 2) if best_distance is not None else None,
                 "absolute_error_mm": absolute_error_mm,
                 "forecast_source": run.get("source"),
                 "lead_hours": forecast_point.get("lead_hours"),
@@ -998,6 +1000,29 @@ def build_lead_time_bucket(lead_hours: Any) -> str:
     return "72h+"
 
 
+def build_diurnal_bucket(observed_time: Any) -> str:
+    """Classify observed_time into time-of-day buckets for diurnal analysis."""
+    if not observed_time:
+        return "unknown"
+    try:
+        from datetime import datetime, timezone, timedelta
+        bkk = timezone(timedelta(hours=7))
+        if isinstance(observed_time, str):
+            dt = datetime.fromisoformat(observed_time.replace("Z", "+00:00"))
+        else:
+            dt = observed_time
+        hour = dt.astimezone(bkk).hour
+    except Exception:
+        return "unknown"
+
+    if 6 <= hour < 12:
+        return "morning"
+    if 12 <= hour < 18:
+        return "afternoon"
+    if 18 <= hour < 24:
+        return "evening"
+    return "night"
+
 def average(values: list[float]) -> float | None:
     return round(sum(values) / len(values), 3) if values else None
 
@@ -1010,10 +1035,10 @@ def summarize_group(rows: list[dict[str, Any]]) -> dict[str, Any]:
     
     brier_sum = 0.0
     brier_count = 0
+    hits = 0
     false_alarms = 0
     misses = 0
-    actual_positives = 0
-    actual_negatives = 0
+    correct_negatives = 0
 
     for row in rows:
         rainfall_mm = row.get("observed_rainfall_mm")
@@ -1030,13 +1055,22 @@ def summarize_group(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 error_values.append(float(abs_error))
         except (TypeError, ValueError):
             pass
-            
-        prob_bucket = row.get("probability_bucket")
+
+        # Use real forecast_probability if available, fall back to bucket midpoint
         prob_val = None
-        if prob_bucket == "very-high": prob_val = 0.95
-        elif prob_bucket == "high": prob_val = 0.80
-        elif prob_bucket == "medium": prob_val = 0.55
-        elif prob_bucket == "low": prob_val = 0.20
+        raw_prob = row.get("forecast_probability")
+        if raw_prob is not None:
+            try:
+                prob_val = float(raw_prob) / 100.0
+            except (TypeError, ValueError):
+                prob_val = None
+
+        if prob_val is None:
+            prob_bucket = row.get("probability_bucket")
+            if prob_bucket == "very-high": prob_val = 0.95
+            elif prob_bucket == "high": prob_val = 0.80
+            elif prob_bucket == "medium": prob_val = 0.55
+            elif prob_bucket == "low": prob_val = 0.20
 
         if prob_val is not None:
             actual_val = 1.0 if did_rain else 0.0
@@ -1045,18 +1079,30 @@ def summarize_group(rows: list[dict[str, Any]]) -> dict[str, Any]:
             
             predicted_rain = prob_val > 0.5
             if did_rain:
-                actual_positives += 1
-                if not predicted_rain:
+                if predicted_rain:
+                    hits += 1
+                else:
                     misses += 1
             else:
-                actual_negatives += 1
                 if predicted_rain:
                     false_alarms += 1
+                else:
+                    correct_negatives += 1
 
     hit_rate = round((rain_hits / total_checks) * 100, 1) if total_checks else None
     brier_score = round(brier_sum / brier_count, 3) if brier_count > 0 else None
+    
+    actual_positives = hits + misses
+    actual_negatives = correct_negatives + false_alarms
     miss_rate = round((misses / actual_positives) * 100, 1) if actual_positives > 0 else None
     false_alarm_rate = round((false_alarms / actual_negatives) * 100, 1) if actual_negatives > 0 else None
+
+    # Brier Skill Score: compare against climatology (base rate)
+    climatology_rate = rain_hits / total_checks if total_checks > 0 else 0
+    brier_ref = climatology_rate * (1 - climatology_rate)
+    brier_skill_score = None
+    if brier_score is not None and brier_ref > 0:
+        brier_skill_score = round(1 - (brier_score / brier_ref), 3)
 
     return {
         "total_checks": total_checks,
@@ -1065,8 +1111,13 @@ def summarize_group(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "avg_observed_rain_mm": average(observed_mm_values),
         "avg_abs_error_mm": average(error_values),
         "brier_score": brier_score,
+        "brier_skill_score": brier_skill_score,
         "miss_rate_pct": miss_rate,
         "false_alarm_rate_pct": false_alarm_rate,
+        "hits": hits,
+        "misses": misses,
+        "false_alarms": false_alarms,
+        "correct_negatives": correct_negatives,
     }
 
 
@@ -1088,21 +1139,33 @@ def summarize_backtest_results() -> dict[str, Any]:
     intensity_groups: dict[str, list[dict[str, Any]]] = {}
     source_groups: dict[str, list[dict[str, Any]]] = {}
     lead_time_groups: dict[str, list[dict[str, Any]]] = {}
+    diurnal_groups: dict[str, list[dict[str, Any]]] = {}
 
+    # Separate "past" (lead_hours < 0) from real forecast data
+    forecast_rows = []
     for row in rows:
-        probability_groups.setdefault(row.get("probability_bucket") or "unknown", []).append(row)
-        intensity_groups.setdefault(row.get("rain_intensity_class") or "unknown", []).append(row)
-        source_groups.setdefault(row.get("forecast_source") or "unknown", []).append(row)
-        
         lt_bucket = build_lead_time_bucket(row.get("lead_hours"))
         lead_time_groups.setdefault(lt_bucket, []).append(row)
 
-    summary = summarize_group(rows)
+        if lt_bucket == "past":
+            continue  # exclude from main summary
+
+        forecast_rows.append(row)
+        probability_groups.setdefault(row.get("probability_bucket") or "unknown", []).append(row)
+        intensity_groups.setdefault(row.get("rain_intensity_class") or "unknown", []).append(row)
+        source_groups.setdefault(row.get("forecast_source") or "unknown", []).append(row)
+
+        diurnal_bucket = build_diurnal_bucket(row.get("observed_time"))
+        diurnal_groups.setdefault(diurnal_bucket, []).append(row)
+
+    # Main summary uses only real forecast rows (not "past")
+    summary = summarize_group(forecast_rows) if forecast_rows else summarize_group(rows)
     observed_times = [row["observed_time"] for row in rows if row.get("observed_time")]
     updated_times = [row["created_at"] for row in rows if row.get("created_at")]
     summary["observed_start"] = min(observed_times) if observed_times else None
     summary["observed_end"] = max(observed_times) if observed_times else None
     summary["latest_updated_at"] = max(updated_times) if updated_times else None
+    summary["total_checks_all"] = len(rows)  # include past for reference
 
     probability_breakdown = {
         key: summarize_group(group_rows)
@@ -1120,6 +1183,10 @@ def summarize_backtest_results() -> dict[str, Any]:
         key: summarize_group(group_rows)
         for key, group_rows in sorted(lead_time_groups.items())
     }
+    diurnal_breakdown = {
+        key: summarize_group(group_rows)
+        for key, group_rows in sorted(diurnal_groups.items())
+    }
 
     confidence_note = []
     total_checks = summary["total_checks"]
@@ -1135,6 +1202,7 @@ def summarize_backtest_results() -> dict[str, Any]:
         "rain_intensity_breakdown": intensity_breakdown,
         "source_breakdown": source_breakdown,
         "lead_time_breakdown": lead_time_breakdown,
+        "diurnal_breakdown": diurnal_breakdown,
         "confidence_flags": confidence_note,
     }
 

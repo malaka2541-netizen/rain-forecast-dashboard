@@ -99,6 +99,15 @@ const i18nConfig = {
     "lt-past": "ข้อมูลในอดีต",
     "lt-unknown": "ไม่ระบุ",
 
+    // Diurnal (time of day)
+    "diurnal-morning": "เช้า (06:00-11:59)",
+    "diurnal-afternoon": "บ่าย (12:00-17:59)",
+    "diurnal-evening": "เย็น-ค่ำ (18:00-23:59)",
+    "diurnal-night": "ดึก-เช้ามืด (00:00-05:59)",
+    "diurnal-unknown": "ไม่ระบุ",
+    "stat-breakdown-diurnal": "แยกตามช่วงเวลาของวัน",
+    "stat-confusion-title": "ตารางความถูกต้อง (Confusion Matrix)",
+
     // Months (Thai)
     "month-01": "ม.ค.", "month-02": "ก.พ.", "month-03": "มี.ค.", "month-04": "เม.ย.",
     "month-05": "พ.ค.", "month-06": "มิ.ย.", "month-07": "ก.ค.", "month-08": "ส.ค.",
@@ -203,6 +212,15 @@ const i18nConfig = {
     "lt-72h+": "超过 72 小时",
     "lt-past": "历史数据",
     "lt-unknown": "未知",
+
+    // Diurnal (time of day)
+    "diurnal-morning": "上午 (06:00-11:59)",
+    "diurnal-afternoon": "下午 (12:00-17:59)",
+    "diurnal-evening": "傍晚 (18:00-23:59)",
+    "diurnal-night": "凌晨 (00:00-05:59)",
+    "diurnal-unknown": "未知",
+    "stat-breakdown-diurnal": "按时间段分类",
+    "stat-confusion-title": "混淆矩阵 (Confusion Matrix)",
 
     // Months (Chinese)
     "month-01": "1月", "month-02": "2月", "month-03": "3月", "month-04": "4月",

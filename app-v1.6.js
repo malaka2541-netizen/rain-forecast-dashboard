@@ -77,6 +77,8 @@ const accuracyProbabilityBreakdown = document.getElementById("accuracy-probabili
 const accuracyIntensityBreakdown = document.getElementById("accuracy-intensity-breakdown");
 const accuracySourceBreakdown = document.getElementById("accuracy-source-breakdown");
 const accuracyLeadTimeBreakdown = document.getElementById("accuracy-lead-time-breakdown");
+const accuracyDiurnalBreakdown = document.getElementById("accuracy-diurnal-breakdown");
+const accuracyConfusionMatrix = document.getElementById("accuracy-confusion-matrix");
 const accuracyConfidenceNotes = document.getElementById("accuracy-confidence-notes");
 
 const comparisonModal = document.getElementById("comparison-modal");
@@ -1365,6 +1367,53 @@ function getLeadTime(key) {
   return val === tk ? key : val;
 }
 
+function getDiurnal(key) {
+  const tk = "diurnal-" + key;
+  const val = t(tk);
+  return val === tk ? key : val;
+}
+
+function buildConfusionMatrixHtml(summary) {
+  const hits = summary?.hits ?? 0;
+  const misses = summary?.misses ?? 0;
+  const fa = summary?.false_alarms ?? 0;
+  const cn = summary?.correct_negatives ?? 0;
+  const total = hits + misses + fa + cn;
+  if (!total) return '<div class="accuracy-breakdown-meta">ยังไม่มีข้อมูลเพียงพอ</div>';
+
+  const bss = summary?.brier_skill_score;
+  const bssText = bss !== null && bss !== undefined ? bss.toFixed(3) : '-';
+  const bssColor = bss !== null && bss > 0 ? '#22c55e' : bss !== null && bss < 0 ? '#ef4444' : 'var(--text-muted)';
+
+  return `
+    <table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-bottom:0.75rem;">
+      <thead>
+        <tr>
+          <th style="padding:6px 8px; border:1px solid var(--border-default); background:var(--bg-card);"></th>
+          <th style="padding:6px 8px; border:1px solid var(--border-default); background:#dcfce7; color:#166534; text-align:center;">🌧️ ฝนตกจริง</th>
+          <th style="padding:6px 8px; border:1px solid var(--border-default); background:#fef9c3; color:#854d0e; text-align:center;">☀️ ไม่ตกจริง</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="padding:6px 8px; border:1px solid var(--border-default); background:var(--bg-card); font-weight:600;">พยากรณ์ฝน</td>
+          <td style="padding:6px 8px; border:1px solid var(--border-default); text-align:center; background:#bbf7d0; color:#166534; font-weight:700;">✅ ${hits}</td>
+          <td style="padding:6px 8px; border:1px solid var(--border-default); text-align:center; background:#fecaca; color:#991b1b; font-weight:700;">⚠️ ${fa}</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 8px; border:1px solid var(--border-default); background:var(--bg-card); font-weight:600;">พยากรณ์ไม่ตก</td>
+          <td style="padding:6px 8px; border:1px solid var(--border-default); text-align:center; background:#fecaca; color:#991b1b; font-weight:700;">❌ ${misses}</td>
+          <td style="padding:6px 8px; border:1px solid var(--border-default); text-align:center; background:#bbf7d0; color:#166534; font-weight:700;">✅ ${cn}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="accuracy-breakdown-meta" style="font-size:0.82rem; color:var(--text-muted);">
+      Brier Skill Score (BSS): <strong style="color:${bssColor}">${bssText}</strong>
+      ${bss !== null && bss > 0 ? ' — ดีกว่าการเดาสุ่ม ✅' : bss !== null && bss < 0 ? ' — แย่กว่าการเดาสุ่ม ❌' : ''}
+    </div>
+  `;
+}
+
 function buildBreakdownHtml(breakdown = {}, labelFormatter) {
   const entries = Object.entries(breakdown);
   if (!entries.length) {
@@ -1422,6 +1471,13 @@ async function openAccuracyModal() {
     accuracyIntensityBreakdown.innerHTML = buildBreakdownHtml(payload.rain_intensity_breakdown, getIntensity);
     accuracySourceBreakdown.innerHTML = buildBreakdownHtml(payload.source_breakdown, getSource);
     accuracyLeadTimeBreakdown.innerHTML = buildBreakdownHtml(payload.lead_time_breakdown, getLeadTime);
+    
+    if (accuracyDiurnalBreakdown) {
+      accuracyDiurnalBreakdown.innerHTML = buildBreakdownHtml(payload.diurnal_breakdown, getDiurnal);
+    }
+    if (accuracyConfusionMatrix) {
+      accuracyConfusionMatrix.innerHTML = buildConfusionMatrixHtml(summary);
+    }
 
     const notes = [];
     if (confidenceFlags.includes("sample-small")) {
