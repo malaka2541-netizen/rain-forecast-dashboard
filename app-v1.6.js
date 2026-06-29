@@ -159,30 +159,23 @@ function updateTableIconToggleUI() {
 async function fetchTmdRadarTimestamp() {
   const overlay = document.getElementById("tmd-timestamp-overlay");
   const textSpan = document.getElementById("tmd-timestamp-text");
-  if (!overlay || !textSpan || !tmdRadarImg) return;
+  if (!overlay || !textSpan) return;
   
-  try {
-    const url = tmdRadarImg.getAttribute("data-src") || tmdRadarImg.src;
-    // We add a cache buster query parameter to ensure we get the fresh header
-    const response = await fetch(url + "?cb=" + new Date().getTime(), { method: 'HEAD' });
-    
-    if (response.ok) {
-      const lastModified = response.headers.get('Last-Modified');
-      if (lastModified) {
-        const dateObj = new Date(lastModified);
-        const timeStr = dateObj.toLocaleTimeString('th-TH', { 
-          timeZone: 'Asia/Bangkok', 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        });
-        textSpan.textContent = timeStr + " น.";
-        overlay.classList.remove("hidden");
-        return;
-      }
-    }
-  } catch (error) {
-    console.error("Failed to fetch TMD radar timestamp:", error);
-  }
+  // Due to TMD's CORS policy, we cannot read the Last-Modified header directly via browser fetch.
+  // Instead, we estimate the radar time. TMD radar updates every 15 mins, with ~15 mins processing delay.
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - 15); // subtract delay
+  const m = now.getMinutes();
+  const roundedM = Math.floor(m / 15) * 15; // round down to nearest 15
+  now.setMinutes(roundedM);
+  
+  const timeStr = now.toLocaleTimeString('th-TH', { 
+    timeZone: 'Asia/Bangkok', 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  });
+  textSpan.textContent = timeStr + " น. (ประมาณ)";
+  overlay.classList.remove("hidden");
 }
 
 function initRadarToggle() {
