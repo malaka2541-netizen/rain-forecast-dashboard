@@ -153,6 +153,35 @@ function updateTableIconToggleUI() {
     : (currentLang === "zh" ? "显示表格中的天气图标" : "แสดงไอคอนสภาพอากาศในตาราง");
 }
 
+async function fetchTmdRadarTimestamp() {
+  const overlay = document.getElementById("tmd-timestamp-overlay");
+  const textSpan = document.getElementById("tmd-timestamp-text");
+  if (!overlay || !textSpan || !tmdRadarImg) return;
+  
+  try {
+    const url = tmdRadarImg.getAttribute("data-src") || tmdRadarImg.src;
+    // We add a cache buster query parameter to ensure we get the fresh header
+    const response = await fetch(url + "?cb=" + new Date().getTime(), { method: 'HEAD' });
+    
+    if (response.ok) {
+      const lastModified = response.headers.get('Last-Modified');
+      if (lastModified) {
+        const dateObj = new Date(lastModified);
+        const timeStr = dateObj.toLocaleTimeString('th-TH', { 
+          timeZone: 'Asia/Bangkok', 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        });
+        textSpan.textContent = timeStr + " น.";
+        overlay.classList.remove("hidden");
+        return;
+      }
+    }
+  } catch (error) {
+    console.error("Failed to fetch TMD radar timestamp:", error);
+  }
+}
+
 function initRadarToggle() {
   if (!btnRadarWindy || !btnRadarTmd) return;
   
@@ -189,6 +218,9 @@ function initRadarToggle() {
         const loadingText = document.getElementById("tmd-loading");
         if (loadingText) loadingText.style.display = "none";
       };
+      
+      // Fetch timestamp for the first time
+      fetchTmdRadarTimestamp();
     }
   });
 }
