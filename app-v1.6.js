@@ -15,7 +15,16 @@ let activeForecastData = [];
 let selectedDate = "";
 let forecastChartInstance = null;
 let tmdAdvisoryState = null;
+let showTableWeatherIcons = localStorage.getItem("showTableWeatherIcons") !== "false";
+const TABLE_ICONS_ON_TEXT = "\u0e2a\u0e31\u0e0d\u0e25\u0e31\u0e01\u0e29\u0e13\u0e4c: \u0e40\u0e1b\u0e34\u0e14";
+const TABLE_ICONS_OFF_TEXT = "\u0e2a\u0e31\u0e0d\u0e25\u0e31\u0e01\u0e29\u0e13\u0e4c: \u0e1b\u0e34\u0e14";
+const TABLE_ICONS_HIDE_TITLE = "\u0e01\u0e14\u0e40\u0e1e\u0e37\u0e48\u0e2d\u0e0b\u0e48\u0e2d\u0e19\u0e2a\u0e31\u0e0d\u0e25\u0e31\u0e01\u0e29\u0e13\u0e4c\u0e2d\u0e32\u0e01\u0e32\u0e28\u0e43\u0e19\u0e15\u0e32\u0e23\u0e32\u0e07";
+const TABLE_ICONS_SHOW_TITLE = "\u0e01\u0e14\u0e40\u0e1e\u0e37\u0e48\u0e2d\u0e41\u0e2a\u0e14\u0e07\u0e2a\u0e31\u0e0d\u0e25\u0e31\u0e01\u0e29\u0e13\u0e4c\u0e2d\u0e32\u0e01\u0e32\u0e28\u0e43\u0e19\u0e15\u0e32\u0e23\u0e32\u0e07";
 let sourceComparisonState = {
+  activeSource: localStorage.getItem("forecastSource") === "openweather" ? "openweather" : "openmeteo",
+  openMeteoData: [],
+  openWeatherData: null,
+  openWeatherText: "à¸£à¸­à¸à¸²à¸£à¹€à¸Šà¸·à¹ˆà¸­à¸¡à¸•à¹ˆà¸­...",
   openMeteoText: "กำลังโหลด...",
   tmdText: "รอการเชื่อมต่อ...",
   tmdConfigured: null
@@ -27,6 +36,11 @@ const displayDateRange = document.getElementById("display-date-range");
 const forecastAvgPercent = document.getElementById("forecast-avg-percent");
 const forecastCurrentLabel = document.getElementById("forecast-current-label");
 const kpiSelectedDate = document.getElementById("kpi-selected-date");
+const activeSourceTitle = document.getElementById("active-source-title");
+const activeSourceCaption = document.getElementById("active-source-caption");
+const btnSourceOpenMeteo = document.getElementById("btn-source-openmeteo");
+const btnSourceOpenWeather = document.getElementById("btn-source-openweather");
+const btnToggleTableIcons = document.getElementById("btn-toggle-table-icons");
 const kpiPeakWindow = document.getElementById("kpi-peak-window");
 const kpiPeakDetail = document.getElementById("kpi-peak-detail");
 const kpiPeakExtra = document.getElementById("kpi-peak-extra");
@@ -74,6 +88,80 @@ const btnCloseComparison = document.getElementById("btn-close-comparison");
 const tableHoverTooltip = document.createElement("div");
 tableHoverTooltip.className = "forecast-hover-tooltip hidden";
 document.body.appendChild(tableHoverTooltip);
+
+function getForecastDataBySource(sourceKey) {
+  if (sourceKey === "openweather") {
+    return Array.isArray(sourceComparisonState.openWeatherData) ? sourceComparisonState.openWeatherData : [];
+  }
+  return Array.isArray(sourceComparisonState.openMeteoData) ? sourceComparisonState.openMeteoData : [];
+}
+
+function getForecastSourceMeta(sourceKey) {
+  if (sourceKey === "openweather") {
+    return {
+      title: "OpenWeather 48 ชม.",
+      caption: "แสดงข้อมูลรายชั่วโมงระยะสั้นประมาณ 48 ชั่วโมง สำหรับเช็กเทียบแนวโน้มใกล้วันจริง"
+    };
+  }
+
+  return {
+    title: "Open-Meteo 10 วัน",
+    caption: "ใช้เป็นข้อมูลหลักสำหรับมุมมองรายชั่วโมงและรายวันระยะยาว"
+  };
+}
+
+function updateSourceToggleUI() {
+  const activeSource = sourceComparisonState.activeSource || "openmeteo";
+  const openWeatherAvailable = getForecastDataBySource("openweather").length > 0;
+  const activeMeta = getForecastSourceMeta(activeSource);
+
+  if (activeSourceTitle) activeSourceTitle.textContent = activeMeta.title;
+  if (activeSourceCaption) activeSourceCaption.textContent = activeMeta.caption;
+
+  if (btnSourceOpenMeteo) {
+    btnSourceOpenMeteo.classList.toggle("active", activeSource === "openmeteo");
+    btnSourceOpenMeteo.setAttribute("aria-pressed", activeSource === "openmeteo" ? "true" : "false");
+  }
+
+  if (btnSourceOpenWeather) {
+    btnSourceOpenWeather.disabled = !openWeatherAvailable;
+    btnSourceOpenWeather.classList.toggle("active", activeSource === "openweather");
+    btnSourceOpenWeather.setAttribute("aria-pressed", activeSource === "openweather" ? "true" : "false");
+    btnSourceOpenWeather.title = openWeatherAvailable
+      ? "สลับไปดูข้อมูล OpenWeather ระยะ 48 ชั่วโมง"
+      : "OpenWeather ยังไม่มีข้อมูลในรอบนี้";
+  }
+}
+
+function updateTableIconToggleUI() {
+  if (!btnToggleTableIcons) return;
+  btnToggleTableIcons.textContent = showTableWeatherIcons
+    ? TABLE_ICONS_ON_TEXT
+    : TABLE_ICONS_OFF_TEXT;
+  btnToggleTableIcons.setAttribute("aria-pressed", showTableWeatherIcons ? "true" : "false");
+  btnToggleTableIcons.title = showTableWeatherIcons
+    ? TABLE_ICONS_HIDE_TITLE
+    : TABLE_ICONS_SHOW_TITLE;
+}
+
+function setTableIconVisibility(showIcons) {
+  showTableWeatherIcons = Boolean(showIcons);
+  localStorage.setItem("showTableWeatherIcons", showTableWeatherIcons ? "true" : "false");
+  updateTableIconToggleUI();
+  renderTable();
+}
+
+function setActiveForecastSource(sourceKey) {
+  const fallbackSource = getForecastDataBySource(sourceKey).length > 0 ? sourceKey : "openmeteo";
+  const nextData = getForecastDataBySource(fallbackSource);
+  if (!nextData.length) return;
+
+  sourceComparisonState.activeSource = fallbackSource;
+  activeForecastData = nextData;
+  localStorage.setItem("forecastSource", fallbackSource);
+  updateSourceToggleUI();
+  loadDataAndRefresh();
+}
 
 function clampProbability(probabilityPercent) {
   const numericValue = Number(probabilityPercent);
@@ -603,7 +691,7 @@ function getAgreementLevel(omEntry, owEntry) {
 function openComparisonModal(dateStr, hour) {
   if (!comparisonModal || !comparisonContent) return;
 
-  const omDay = activeForecastData.find(d => d.date === dateStr);
+  const omDay = sourceComparisonState.openMeteoData.find(d => d.date === dateStr);
   const owDay = sourceComparisonState.openWeatherData ? sourceComparisonState.openWeatherData.find(d => d.date === dateStr) : null;
   
   const omEntry = omDay ? omDay.values[hour] : null;
@@ -640,7 +728,7 @@ function openComparisonModal(dateStr, hour) {
     const weather = getWeatherDetails(omEntry.weatherCode, omEntry.precipitation, omEntry.windGust, omEntry.probability);
     html += `
       <div style="padding: 1rem; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px;">
-        <h4 style="margin: 0 0 0.5rem 0; color: #0ea5e9;">Open-Meteo (หลัก)</h4>
+        <h4 style="margin: 0 0 0.5rem 0; color: #0ea5e9;">${sourceComparisonState.activeSource === "openmeteo" ? "Open-Meteo (หลัก)" : "Open-Meteo (เปรียบเทียบ)"}</h4>
         <div>โอกาสฝน: ${Math.round(omEntry.probability * 100)}%</div>
         <div>ปริมาณฝนคาดการณ์: ${formatMillimeters(omEntry.precipitation)}</div>
         <div>สภาพอากาศ: ${weather.label}</div>
@@ -653,7 +741,7 @@ function openComparisonModal(dateStr, hour) {
     const timeNote = (owHourUsed !== hour) ? ` <span style="font-size: 0.8rem; color: #64748b;">(เวลาพยากรณ์ใกล้เคียง: ${owHourUsed} น.)</span>` : '';
     html += `
       <div style="padding: 1rem; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px;">
-        <h4 style="margin: 0 0 0.5rem 0; color: #f59e0b;">OpenWeather (เปรียบเทียบ)${timeNote}</h4>
+        <h4 style="margin: 0 0 0.5rem 0; color: #f59e0b;">${sourceComparisonState.activeSource === "openweather" ? "OpenWeather (หลัก)" : "OpenWeather (เปรียบเทียบ)"}${timeNote}</h4>
         <div>โอกาสฝน: ${Math.round(owEntry.probability * 100)}%</div>
         <div>ปริมาณฝนคาดการณ์: ${formatMillimeters(owEntry.precipitation)}</div>
         <div>สภาพอากาศ: ${weather.label}</div>
@@ -662,8 +750,8 @@ function openComparisonModal(dateStr, hour) {
   } else {
     html += `
       <div style="padding: 1rem; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; opacity: 0.7;">
-        <h4 style="margin: 0 0 0.5rem 0; color: #f59e0b;">OpenWeather (เปรียบเทียบ)</h4>
-        <div>ไม่มีข้อมูลในชั่วโมงนี้ หรือยังไม่ได้ตั้งค่า API Key</div>
+        <h4 style="margin: 0 0 0.5rem 0; color: #f59e0b;">${sourceComparisonState.activeSource === "openweather" ? "OpenWeather (หลัก)" : "OpenWeather (เปรียบเทียบ)"}</h4>
+        <div>ไม่มีข้อมูลสำหรับชั่วโมงนี้ในช่วงพยากรณ์ 48 ชั่วโมง หรือยังไม่ได้ตั้งค่า API Key</div>
       </div>
     `;
   }
@@ -1395,8 +1483,21 @@ document.addEventListener("DOMContentLoaded", () => {
   if (btnCloseComparison) {
     btnCloseComparison.addEventListener("click", () => comparisonModal.classList.add("hidden"));
   }
+  if (btnSourceOpenMeteo) {
+    btnSourceOpenMeteo.addEventListener("click", () => setActiveForecastSource("openmeteo"));
+  }
+  if (btnSourceOpenWeather) {
+    btnSourceOpenWeather.addEventListener("click", () => setActiveForecastSource("openweather"));
+  }
+  if (btnToggleTableIcons) {
+    btnToggleTableIcons.addEventListener("click", () => {
+      setTableIconVisibility(!showTableWeatherIcons);
+    });
+  }
 
   // Fetch real data on load automatically
+  updateSourceToggleUI();
+  updateTableIconToggleUI();
   renderSourceComparison();
   fetchDashboardData();
   
@@ -1826,17 +1927,23 @@ function renderTable() {
         iconWrapper.innerHTML = buildWeatherIconHtml(weather);
 
         cell.appendChild(valueWrapper);
-        cell.appendChild(iconWrapper);
+        if (showTableWeatherIcons) {
+          cell.appendChild(iconWrapper);
+        }
         
         // Add agreement badge
-        const owDay = sourceComparisonState.openWeatherData ? sourceComparisonState.openWeatherData.find(d => d.date === day.date) : null;
+        const owDay = (sourceComparisonState.activeSource === "openweather" ? sourceComparisonState.openMeteoData : sourceComparisonState.openWeatherData)
+          ? (sourceComparisonState.activeSource === "openweather" ? sourceComparisonState.openMeteoData : sourceComparisonState.openWeatherData).find(d => d.date === day.date)
+          : null;
         const owEntry = owDay ? owDay.values[hour] : null;
-        const agreement = getAgreementLevel(entry, owEntry);
+        const agreement = sourceComparisonState.activeSource === "openweather"
+          ? getAgreementLevel(owEntry, entry)
+          : getAgreementLevel(entry, owEntry);
         
         if (agreement !== "unknown") {
           const badge = document.createElement("div");
           badge.className = `agreement-badge badge-${agreement}`;
-          badge.title = agreement === "agree" ? "OpenWeather สอดคล้อง" : "OpenWeather ขัดแย้ง";
+          badge.title = agreement === "agree" ? "ข้อมูลพยากรณ์สอดคล้องกัน" : "ข้อมูลพยากรณ์ให้แนวโน้มต่างกัน";
           cell.appendChild(badge);
         }
 
@@ -2127,7 +2234,7 @@ async function fetchDashboardData() {
       throw new Error("ไม่สามารถสร้างชุดข้อมูลพยากรณ์อากาศจาก Open-Meteo ได้");
     }
 
-    activeForecastData = forecastDays;
+    sourceComparisonState.openMeteoData = forecastDays;
     sourceComparisonState.openMeteoText = statusText;
     displayLocation.innerText = currentLocName;
     console.log("Weather data loaded from Open-Meteo successfully.");
@@ -2135,8 +2242,6 @@ async function fetchDashboardData() {
     // Sync radar map with current coordinates
     updateWindyRadar(currentLat, currentLon);
     
-    loadDataAndRefresh();
-
     if (tmdResult.status === "fulfilled") {
       sourceComparisonState.tmdText = tmdResult.value.statusText;
       sourceComparisonState.tmdConfigured = tmdResult.value.tokenConfigured;
@@ -2160,6 +2265,13 @@ async function fetchDashboardData() {
       sourceComparisonState.openWeatherData = null;
     }
 
+    const preferredSource = sourceComparisonState.activeSource === "openweather" && getForecastDataBySource("openweather").length > 0
+      ? "openweather"
+      : "openmeteo";
+    sourceComparisonState.activeSource = preferredSource;
+    activeForecastData = getForecastDataBySource(preferredSource);
+    updateSourceToggleUI();
+    loadDataAndRefresh();
     updateKpiAnalytics();
     renderSourceComparison();
   } catch (error) {
