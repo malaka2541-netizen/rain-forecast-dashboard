@@ -1343,9 +1343,10 @@ function buildBacktestSummaryNarrative(summary, confidenceFlags = []) {
 
 function getProbabilityBucketThai(key) {
   const map = {
-    low: "โอกาสฝนต่ำ",
+    low: "โอกาสฝนน้อย",
     medium: "โอกาสฝนปานกลาง",
     high: "โอกาสฝนสูง",
+    "very-high": "โอกาสฝนสูงมาก",
     unknown: "ไม่ระบุช่วง"
   };
   return map[key] || key;
@@ -1962,12 +1963,14 @@ function renderTable() {
         });
 
         
-        if (val <= 0.30) {
+        if (val <= 0.40) {
           cell.className = "cell-low";
         } else if (val <= 0.70) {
           cell.className = "cell-med";
-        } else {
+        } else if (val <= 0.90) {
           cell.className = "cell-high";
+        } else {
+          cell.className = "cell-very-high";
         }
 
         if (rainIntensity.rank >= 4) {

@@ -645,11 +645,13 @@ def build_probability_bucket(probability: Any) -> str:
     except (TypeError, ValueError):
         return "unknown"
 
-    if value <= 30:
+    if value <= 40:
         return "low"
     if value <= 70:
         return "medium"
-    return "high"
+    if value <= 90:
+        return "high"
+    return "very-high"
 
 
 def build_rain_intensity_class(rainfall_mm: Any) -> str:
@@ -1031,9 +1033,10 @@ def summarize_group(rows: list[dict[str, Any]]) -> dict[str, Any]:
             
         prob_bucket = row.get("probability_bucket")
         prob_val = None
-        if prob_bucket == "high": prob_val = 0.85
-        elif prob_bucket == "medium": prob_val = 0.50
-        elif prob_bucket == "low": prob_val = 0.15
+        if prob_bucket == "very-high": prob_val = 0.95
+        elif prob_bucket == "high": prob_val = 0.80
+        elif prob_bucket == "medium": prob_val = 0.55
+        elif prob_bucket == "low": prob_val = 0.20
 
         if prob_val is not None:
             actual_val = 1.0 if did_rain else 0.0

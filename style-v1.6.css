@@ -7,6 +7,8 @@
   --med-text: #9a6d00;
   --high-bg: rgba(241, 216, 201, 0.85);
   --high-text: #d96a1b;
+  --very-high-bg: rgba(246, 172, 172, 0.85);
+  --very-high-text: #c0392b;
 
   --font-main: 'Outfit', 'Sarabun', sans-serif;
   --transition-speed: 0.3s;
@@ -1425,6 +1427,12 @@ select:focus {
 .cell-high {
   background-color: var(--high-bg) !important;
   color: var(--high-text) !important;
+  font-weight: 700;
+}
+
+.cell-very-high {
+  background-color: var(--very-high-bg) !important;
+  color: var(--very-high-text) !important;
   font-weight: 700;
 }
 
