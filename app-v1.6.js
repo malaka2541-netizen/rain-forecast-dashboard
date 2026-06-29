@@ -16,10 +16,10 @@ let selectedDate = "";
 let forecastChartInstance = null;
 let tmdAdvisoryState = null;
 let showTableWeatherIcons = localStorage.getItem("showTableWeatherIcons") !== "false";
-const TABLE_ICONS_ON_TEXT = "\u0e2a\u0e31\u0e0d\u0e25\u0e31\u0e01\u0e29\u0e13\u0e4c: \u0e40\u0e1b\u0e34\u0e14";
-const TABLE_ICONS_OFF_TEXT = "\u0e2a\u0e31\u0e0d\u0e25\u0e31\u0e01\u0e29\u0e13\u0e4c: \u0e1b\u0e34\u0e14";
-const TABLE_ICONS_HIDE_TITLE = "\u0e01\u0e14\u0e40\u0e1e\u0e37\u0e48\u0e2d\u0e0b\u0e48\u0e2d\u0e19\u0e2a\u0e31\u0e0d\u0e25\u0e31\u0e01\u0e29\u0e13\u0e4c\u0e2d\u0e32\u0e01\u0e32\u0e28\u0e43\u0e19\u0e15\u0e32\u0e23\u0e32\u0e07";
-const TABLE_ICONS_SHOW_TITLE = "\u0e01\u0e14\u0e40\u0e1e\u0e37\u0e48\u0e2d\u0e41\u0e2a\u0e14\u0e07\u0e2a\u0e31\u0e0d\u0e25\u0e31\u0e01\u0e29\u0e13\u0e4c\u0e2d\u0e32\u0e01\u0e32\u0e28\u0e43\u0e19\u0e15\u0e32\u0e23\u0e32\u0e07";
+const TABLE_ICONS_ON_TEXT = "สัญลักษณ์: เปิด";
+const TABLE_ICONS_OFF_TEXT = "สัญลักษณ์: ปิด";
+const TABLE_ICONS_HIDE_TITLE = "กดเพื่อซ่อนสัญลักษณ์สภาพอากาศและจุดสีในตาราง";
+const TABLE_ICONS_SHOW_TITLE = "กดเพื่อแสดงสัญลักษณ์สภาพอากาศและจุดสีในตาราง";
 let sourceComparisonState = {
   activeSource: localStorage.getItem("forecastSource") === "openweather" ? "openweather" : "openmeteo",
   openMeteoData: [],
@@ -1935,19 +1935,21 @@ function renderTable() {
         }
         
         // Add agreement badge
-        const owDay = (sourceComparisonState.activeSource === "openweather" ? sourceComparisonState.openMeteoData : sourceComparisonState.openWeatherData)
-          ? (sourceComparisonState.activeSource === "openweather" ? sourceComparisonState.openMeteoData : sourceComparisonState.openWeatherData).find(d => d.date === day.date)
-          : null;
-        const owEntry = owDay ? owDay.values[hour] : null;
-        const agreement = sourceComparisonState.activeSource === "openweather"
-          ? getAgreementLevel(owEntry, entry)
-          : getAgreementLevel(entry, owEntry);
-        
-        if (agreement !== "unknown") {
-          const badge = document.createElement("div");
-          badge.className = `agreement-badge badge-${agreement}`;
-          badge.title = agreement === "agree" ? "ข้อมูลพยากรณ์สอดคล้องกัน" : "ข้อมูลพยากรณ์ให้แนวโน้มต่างกัน";
-          cell.appendChild(badge);
+        if (showTableWeatherIcons) {
+          const owDay = (sourceComparisonState.activeSource === "openweather" ? sourceComparisonState.openMeteoData : sourceComparisonState.openWeatherData)
+            ? (sourceComparisonState.activeSource === "openweather" ? sourceComparisonState.openMeteoData : sourceComparisonState.openWeatherData).find(d => d.date === day.date)
+            : null;
+          const owEntry = owDay ? owDay.values[hour] : null;
+          const agreement = sourceComparisonState.activeSource === "openweather"
+            ? getAgreementLevel(owEntry, entry)
+            : getAgreementLevel(entry, owEntry);
+          
+          if (agreement !== "unknown") {
+            const badge = document.createElement("div");
+            badge.className = `agreement-badge badge-${agreement}`;
+            badge.title = agreement === "agree" ? "ข้อมูลพยากรณ์สอดคล้องกัน" : "ข้อมูลพยากรณ์ให้แนวโน้มต่างกัน";
+            cell.appendChild(badge);
+          }
         }
 
         cell.setAttribute("aria-label", `${hour} ${weather.label} ${rainIntensity.label}`);
@@ -1975,11 +1977,11 @@ function renderTable() {
           cell.className = "cell-very-high";
         }
 
-        if (rainIntensity.rank >= 4) {
+        if (rainIntensity.rank >= 4 && showTableWeatherIcons) {
           cell.classList.add("cell-heavy");
         }
 
-        if (stormRisk.active) {
+        if (stormRisk.active && showTableWeatherIcons) {
           cell.classList.add("cell-storm");
         }
       }
