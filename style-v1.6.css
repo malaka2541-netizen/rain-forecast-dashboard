@@ -747,6 +747,7 @@ select:focus {
   padding: 0 !important;
   overflow: hidden;
   display: flex;
+  flex-direction: column;
   min-height: 200px;
   position: relative;
 }
