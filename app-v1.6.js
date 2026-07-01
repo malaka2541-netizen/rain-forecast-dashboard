@@ -221,16 +221,8 @@ function initRadarToggle() {
   });
 
   btnRadarBma.addEventListener("click", () => {
-    setActiveRadar(btnRadarBma, bmaRadarContainer);
-    
-    // Lazy load the BMA radar iframe
-    if (bmaRadarIframe && bmaRadarIframe.getAttribute("src") !== bmaRadarIframe.getAttribute("data-src")) {
-      bmaRadarIframe.setAttribute("src", bmaRadarIframe.getAttribute("data-src"));
-      bmaRadarIframe.onload = () => {
-        const loadingText = document.getElementById("bma-loading");
-        if (loadingText) loadingText.style.display = "none";
-      };
-    }
+    // กรมอุตุฯ มีระบบป้องกันการดึงหน้าเว็บไปแสดงผลใน iframe จึงต้องเปิดแท็บใหม่แทน
+    window.open("https://satda.tmd.go.th/wp-content/uploads/nowcasting/bkk/bangkok.php", "_blank");
   });
 }
 
