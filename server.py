@@ -10,7 +10,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 sys.stdout.reconfigure(encoding="utf-8")
 
@@ -41,6 +41,28 @@ def sanitize_json_value(value: Any) -> Any:
     if isinstance(value, list):
         return [sanitize_json_value(item) for item in value]
     return value
+
+
+def execute_backtest_step(
+    step_name: str,
+    callback: Callable[[], dict[str, Any]],
+) -> dict[str, Any]:
+    try:
+        result = callback()
+        if isinstance(result, dict):
+            result.setdefault("success", True)
+            result.setdefault("source", step_name)
+        return result
+    except Exception as error:
+        log_event(
+            f"Backtest step failed ({step_name}): {type(error).__name__}: {error}"
+        )
+        return {
+            "success": False,
+            "source": step_name,
+            "error": str(error),
+            "error_type": type(error).__name__,
+        }
 
 
 def load_env_file(env_path: Path) -> None:
@@ -877,18 +899,41 @@ def collect_tmd_aws_observations(provinces: list[str] | None = None) -> dict[str
     )
     all_rows: list[dict[str, Any]] = []
     province_stats: list[dict[str, Any]] = []
+    province_errors: list[dict[str, Any]] = []
 
     for province in target_provinces:
-        station_rows = fetch_tmd_aws_observations(province)
-        observation_rows = build_tmd_aws_observation_rows(province, station_rows)
-        province_stats.append(
-            {
-                "province": province,
-                "stations_returned": len(station_rows),
-                "rows_prepared": len(observation_rows),
-            }
-        )
-        all_rows.extend(observation_rows)
+        try:
+            station_rows = fetch_tmd_aws_observations(province)
+            observation_rows = build_tmd_aws_observation_rows(province, station_rows)
+            province_stats.append(
+                {
+                    "province": province,
+                    "stations_returned": len(station_rows),
+                    "rows_prepared": len(observation_rows),
+                    "success": True,
+                }
+            )
+            all_rows.extend(observation_rows)
+        except Exception as error:
+            log_event(
+                f"TMD AWS observation fetch failed for {province}: "
+                f"{type(error).__name__}: {error}"
+            )
+            province_errors.append(
+                {
+                    "province": province,
+                    "error": str(error),
+                    "error_type": type(error).__name__,
+                }
+            )
+            province_stats.append(
+                {
+                    "province": province,
+                    "stations_returned": 0,
+                    "rows_prepared": 0,
+                    "success": False,
+                }
+            )
 
     inserted_count = 0
     if all_rows:
@@ -901,10 +946,11 @@ def collect_tmd_aws_observations(provinces: list[str] | None = None) -> dict[str
         inserted_count = len(all_rows)
 
     return {
-        "success": True,
+        "success": not province_errors or inserted_count > 0,
         "source": build_observation_source_name(),
         "provinces": target_provinces,
         "province_stats": province_stats,
+        "errors": province_errors,
         "rows_inserted": inserted_count,
     }
 
@@ -958,14 +1004,43 @@ def run_backtest_cycle(
     lon: str | None = None,
     provinces: list[str] | None = None,
 ) -> dict[str, Any]:
-    openmeteo_result = collect_openmeteo_forecast_snapshot(lat, lon)
-    openweather_result = collect_openweather_forecast_snapshot(lat, lon)
-    observation_result = collect_tmd_aws_observations(provinces)
-    verification_result = run_backtest_verification()
-    summary_result = summarize_backtest_results()
+    openmeteo_result = execute_backtest_step(
+        "openmeteo",
+        lambda: collect_openmeteo_forecast_snapshot(lat, lon),
+    )
+    openweather_result = execute_backtest_step(
+        "openweather",
+        lambda: collect_openweather_forecast_snapshot(lat, lon),
+    )
+    observation_result = execute_backtest_step(
+        "observations",
+        lambda: collect_tmd_aws_observations(provinces),
+    )
+    verification_result = execute_backtest_step(
+        "verification",
+        run_backtest_verification,
+    )
+    summary_result = execute_backtest_step(
+        "summary",
+        summarize_backtest_results,
+    )
+    step_results = {
+        "forecast_openmeteo": openmeteo_result,
+        "forecast_openweather": openweather_result,
+        "observations": observation_result,
+        "verification": verification_result,
+        "summary": summary_result,
+    }
+    failed_steps = [
+        step_name
+        for step_name, result in step_results.items()
+        if not result.get("success", False)
+    ]
 
     return {
         "success": True,
+        "partial_failure": bool(failed_steps),
+        "failed_steps": failed_steps,
         "cycle": {
             "forecast_openmeteo": openmeteo_result,
             "forecast_openweather": openweather_result,
@@ -973,6 +1048,7 @@ def run_backtest_cycle(
             "verification": verification_result,
             "summary": summary_result.get("summary", {}),
             "confidence_flags": summary_result.get("confidence_flags", []),
+            "step_results": step_results,
         },
     }
 
