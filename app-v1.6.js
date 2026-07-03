@@ -2369,19 +2369,19 @@ async function fetchDashboardData() {
       fetchOpenWeatherForecast(currentLat, currentLon)
     ]);
 
-    if (openMeteoResult.status !== "fulfilled") {
-      throw openMeteoResult.reason;
-    }
-
-    const { forecastDays, statusText } = openMeteoResult.value;
-    if (!forecastDays.length) {
-      throw new Error("ไม่สามารถสร้างชุดข้อมูลพยากรณ์อากาศจาก Open-Meteo ได้");
-    }
-
-    sourceComparisonState.openMeteoData = forecastDays;
-    sourceComparisonState.openMeteoText = statusText;
+    const openMeteoAvailable = openMeteoResult.status === "fulfilled" && openMeteoResult.value.forecastDays.length > 0;
+    sourceComparisonState.openMeteoData = openMeteoAvailable ? openMeteoResult.value.forecastDays : [];
+    sourceComparisonState.openMeteoText = openMeteoAvailable
+      ? openMeteoResult.value.statusText
+      : "Open-Meteo unavailable in this cycle";
     displayLocation.innerText = currentLocName;
-    console.log("Weather data loaded from Open-Meteo successfully.");
+    if (openMeteoAvailable) {
+      console.log("Weather data loaded from Open-Meteo successfully.");
+    } else if (openMeteoResult.status !== "fulfilled") {
+      console.warn("Open-Meteo unavailable for this cycle:", openMeteoResult.reason);
+    } else {
+      console.warn("Open-Meteo returned no forecast rows for this cycle.");
+    }
     
     // Sync radar map with current coordinates
     updateWindyRadar(currentLat, currentLon);
@@ -2409,9 +2409,20 @@ async function fetchDashboardData() {
       sourceComparisonState.openWeatherData = null;
     }
 
-    const preferredSource = sourceComparisonState.activeSource === "openweather" && getForecastDataBySource("openweather").length > 0
+    const hasOpenMeteoData = getForecastDataBySource("openmeteo").length > 0;
+    const hasOpenWeatherData = getForecastDataBySource("openweather").length > 0;
+    if (!hasOpenMeteoData && !hasOpenWeatherData) {
+      if (openMeteoResult.status !== "fulfilled") {
+        throw openMeteoResult.reason;
+      }
+      throw new Error("No forecast data available from Open-Meteo or OpenWeather");
+    }
+
+    const preferredSource = !hasOpenMeteoData && hasOpenWeatherData
       ? "openweather"
-      : "openmeteo";
+      : sourceComparisonState.activeSource === "openweather" && hasOpenWeatherData
+        ? "openweather"
+        : "openmeteo";
     sourceComparisonState.activeSource = preferredSource;
     activeForecastData = getForecastDataBySource(preferredSource);
     updateSourceToggleUI();

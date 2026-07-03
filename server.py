@@ -3,6 +3,7 @@ import hmac
 import json
 import math
 import os
+import time
 import socketserver
 import sys
 import urllib.error
@@ -27,6 +28,7 @@ DEFAULT_OBSERVATION_PROVINCES = [
     "Samut Sakhon",
 ]
 BANGKOK_TIMEZONE = timezone(timedelta(hours=7))
+OPENMETEO_PROXY_CACHE: dict[str, dict[str, Any]] = {}
 
 
 def log_event(message: str) -> None:
@@ -281,8 +283,25 @@ def fetch_json_url(url: str, headers: dict[str, str] | None = None, timeout: int
     for key, value in (headers or {}).items():
         request.add_header(key, value)
 
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        return json.loads(response.read().decode("utf-8"))
+    last_error: Exception | None = None
+    attempts = 3
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except Exception as error:
+            last_error = error
+            if attempt >= attempts:
+                break
+            log_event(
+                f"Retrying JSON fetch ({attempt}/{attempts}) after "
+                f"{type(error).__name__}: {error}"
+            )
+            time.sleep(min(attempt, 3))
+
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("Unknown JSON fetch error.")
 
 
 def redact_query_params(url: str, keys: tuple[str, ...]) -> str:
@@ -1437,14 +1456,30 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps(payload).encode("utf-8"))
 
-    def fetch_json(self, url, headers=None, timeout=20):
+    def fetch_json(self, url, headers=None, timeout=20, attempts=3):
         request = urllib.request.Request(url)
         request.add_header("Accept", "application/json")
         for key, value in (headers or {}).items():
             request.add_header(key, value)
 
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            return response.read()
+        last_error: Exception | None = None
+        for attempt in range(1, attempts + 1):
+            try:
+                with urllib.request.urlopen(request, timeout=timeout) as response:
+                    return response.read()
+            except Exception as error:
+                last_error = error
+                if attempt >= attempts:
+                    break
+                log_event(
+                    f"Retrying proxy fetch ({attempt}/{attempts}) for {url} after "
+                    f"{type(error).__name__}: {error}"
+                )
+                time.sleep(min(attempt, 3))
+
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("Unknown proxy fetch error.")
 
     def parse_lat_lon(self, parsed_url):
         query_params = urllib.parse.parse_qs(parsed_url.query)
@@ -1454,10 +1489,11 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
 
     def handle_openmeteo_forecast(self, lat, lon):
         openmeteo_url = build_openmeteo_url(lat, lon)
+        cache_key = f"{lat},{lon}"
         log_event(f"Proxying Open-Meteo request to: {openmeteo_url}")
 
         try:
-            response_body = self.fetch_json(openmeteo_url, timeout=20)
+            response_body = self.fetch_json(openmeteo_url, timeout=20, attempts=3)
             payload = json.loads(response_body.decode("utf-8"))
             
             # Apply probability calibration (Shadow Mode) if OpenWeather is configured
@@ -1468,10 +1504,30 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 log_event(f"Could not apply OpenWeather calibration: {e}")
 
+            OPENMETEO_PROXY_CACHE[cache_key] = json.loads(json.dumps(payload))
             self.respond_json(payload)
             log_openmeteo_snapshot(lat, lon, payload)
             log_event("Open-Meteo request completed successfully.")
         except Exception as error:
+            cached_payload = OPENMETEO_PROXY_CACHE.get(cache_key)
+            if cached_payload:
+                stale_payload = json.loads(json.dumps(cached_payload))
+                stale_payload["_meta"] = {
+                    **(stale_payload.get("_meta") or {}),
+                    "stale": True,
+                    "fallback_reason": str(error),
+                    "served_at": utc_now_iso(),
+                }
+                log_event(
+                    f"Serving cached Open-Meteo payload for {cache_key} after "
+                    f"{type(error).__name__}: {error}"
+                )
+                self.respond_json(
+                    stale_payload,
+                    status=200,
+                    extra_headers={"X-Forecast-Stale": "1"},
+                )
+                return
             log_event(f"Error during Open-Meteo proxy request: {type(error).__name__}: {error}")
             self.respond_json({"error": str(error), "source": "openmeteo"}, status=500)
 
