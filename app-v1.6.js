@@ -124,6 +124,7 @@ function getForecastSourceMeta(sourceKey) {
 
 function updateSourceToggleUI() {
   const activeSource = sourceComparisonState.activeSource || "openmeteo";
+  const openMeteoAvailable = getForecastDataBySource("openmeteo").length > 0;
   const openWeatherAvailable = getForecastDataBySource("openweather").length > 0;
   const activeMeta = getForecastSourceMeta(activeSource);
 
@@ -131,8 +132,12 @@ function updateSourceToggleUI() {
   if (activeSourceCaption) activeSourceCaption.textContent = activeMeta.caption;
 
   if (btnSourceOpenMeteo) {
+    btnSourceOpenMeteo.disabled = !openMeteoAvailable;
     btnSourceOpenMeteo.classList.toggle("active", activeSource === "openmeteo");
     btnSourceOpenMeteo.setAttribute("aria-pressed", activeSource === "openmeteo" ? "true" : "false");
+    btnSourceOpenMeteo.title = openMeteoAvailable
+      ? "สลับไปดูข้อมูล Open-Meteo ระยะ 10 วัน"
+      : "Open-Meteo ยังไม่มีข้อมูลในรอบนี้";
   }
 
   if (btnSourceOpenWeather) {
@@ -235,7 +240,14 @@ function setTableIconVisibility(showIcons) {
 }
 
 function setActiveForecastSource(sourceKey) {
-  const fallbackSource = getForecastDataBySource(sourceKey).length > 0 ? sourceKey : "openmeteo";
+  const fallbackSource = getForecastDataBySource(sourceKey).length > 0
+    ? sourceKey
+    : getForecastDataBySource("openmeteo").length > 0
+      ? "openmeteo"
+      : getForecastDataBySource("openweather").length > 0
+        ? "openweather"
+        : null;
+  if (!fallbackSource) return;
   const nextData = getForecastDataBySource(fallbackSource);
   if (!nextData.length) return;
 
@@ -1224,6 +1236,10 @@ async function fetchOpenMeteoForecast(lat, lon) {
 
   const data = await response.json();
   const hourly = data.hourly;
+  if (!hourly || !Array.isArray(hourly.time)) {
+    throw new Error("Open-Meteo payload missing hourly timeline");
+  }
+  const isStale = Boolean(data && data._meta && data._meta.stale);
   const grouped = {};
 
   hourly.time.forEach((timeStr, index) => {
@@ -1257,9 +1273,11 @@ async function fetchOpenMeteoForecast(lat, lon) {
       values: grouped[dateStr]
     }));
 
+  const baseStatusText = buildOpenMeteoStatusText(forecastDays);
+
   return {
     forecastDays,
-    statusText: buildOpenMeteoStatusText(forecastDays)
+    statusText: isStale ? `${baseStatusText} | ใช้ข้อมูลสำรองล่าสุด` : baseStatusText
   };
 }
 

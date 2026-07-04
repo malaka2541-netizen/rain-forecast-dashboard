@@ -659,6 +659,79 @@ def build_openweather_hour_rows(run_id: int, payload: dict[str, Any]) -> list[di
     return rows
 
 
+def fetch_recent_openmeteo_runs(limit: int = 20) -> list[dict[str, Any]]:
+    return supabase_get(
+        "/rest/v1/forecast_runs"
+        "?select=id,source,requested_lat,requested_lon,requested_at,timezone,"
+        "generation_time_ms,utc_offset_seconds,raw_payload"
+        "&source=eq.openmeteo"
+        f"&order=requested_at.desc&limit={limit}",
+        timeout=20,
+    ) or []
+
+
+def pick_closest_forecast_run(
+    runs: list[dict[str, Any]],
+    target_lat: str,
+    target_lon: str,
+) -> tuple[dict[str, Any] | None, float | None]:
+    if not runs:
+        return None, None
+
+    try:
+        lat_value = float(target_lat)
+        lon_value = float(target_lon)
+    except (TypeError, ValueError):
+        return runs[0], None
+
+    best_run: dict[str, Any] | None = None
+    best_distance: float | None = None
+
+    for run in runs:
+        try:
+            run_lat = float(run.get("requested_lat"))
+            run_lon = float(run.get("requested_lon"))
+        except (TypeError, ValueError):
+            continue
+
+        distance = abs(run_lat - lat_value) + abs(run_lon - lon_value)
+        if best_distance is None or distance < best_distance:
+            best_run = run
+            best_distance = distance
+
+    return (best_run or runs[0]), best_distance
+
+
+def fetch_latest_openmeteo_payload_from_supabase(
+    lat: str,
+    lon: str,
+    limit: int = 20,
+) -> dict[str, Any] | None:
+    if not is_supabase_logging_enabled():
+        return None
+
+    runs = fetch_recent_openmeteo_runs(limit=limit)
+    selected_run, distance = pick_closest_forecast_run(runs, lat, lon)
+    if not selected_run:
+        return None
+
+    payload = selected_run.get("raw_payload")
+    if not isinstance(payload, dict):
+        return None
+
+    hydrated_payload = json.loads(json.dumps(payload))
+    existing_meta = hydrated_payload.get("_meta")
+    meta = existing_meta if isinstance(existing_meta, dict) else {}
+    hydrated_payload["_meta"] = {
+        **meta,
+        "fallback_source": "supabase-last-openmeteo-run",
+        "supabase_run_id": selected_run.get("id"),
+        "supabase_requested_at": selected_run.get("requested_at"),
+        "supabase_distance_score": round(distance, 6) if distance is not None else None,
+    }
+    return hydrated_payload
+
+
 def fetch_tmd_aws_observations(province: str) -> list[dict[str, Any]]:
     aws_url = build_tmd_aws_url(province)
     log_event(f"Fetching TMD AWS observations for province={province}: {aws_url}")
@@ -1526,6 +1599,29 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
                     stale_payload,
                     status=200,
                     extra_headers={"X-Forecast-Stale": "1"},
+                )
+                return
+            supabase_payload = fetch_latest_openmeteo_payload_from_supabase(lat, lon)
+            if supabase_payload:
+                stale_payload = json.loads(json.dumps(supabase_payload))
+                stale_payload["_meta"] = {
+                    **(stale_payload.get("_meta") or {}),
+                    "stale": True,
+                    "fallback_reason": str(error),
+                    "served_at": utc_now_iso(),
+                }
+                OPENMETEO_PROXY_CACHE[cache_key] = json.loads(json.dumps(stale_payload))
+                log_event(
+                    f"Serving Supabase fallback Open-Meteo payload for {cache_key} after "
+                    f"{type(error).__name__}: {error}"
+                )
+                self.respond_json(
+                    stale_payload,
+                    status=200,
+                    extra_headers={
+                        "X-Forecast-Stale": "1",
+                        "X-Forecast-Fallback": "supabase",
+                    },
                 )
                 return
             log_event(f"Error during Open-Meteo proxy request: {type(error).__name__}: {error}")
