@@ -106,6 +106,35 @@ def build_openweather_url(lat: str, lon: str) -> str | None:
     )
 
 
+def build_googleweather_url(
+    lat: str,
+    lon: str,
+    hours: int = 240,
+    page_size: int = 24,
+    page_token: str | None = None,
+) -> str | None:
+    api_key = os.getenv("GOOGLE_WEATHER_API_KEY")
+    if not api_key:
+        return None
+
+    query = {
+        "key": api_key,
+        "location.latitude": lat,
+        "location.longitude": lon,
+        "unitsSystem": "METRIC",
+        "hours": str(hours),
+        "pageSize": str(page_size),
+        "languageCode": "th",
+    }
+    if page_token:
+        query["pageToken"] = page_token
+
+    return (
+        "https://weather.googleapis.com/v1/forecast/hours:lookup?"
+        f"{urllib.parse.urlencode(query)}"
+    )
+
+
 def build_tmd_url(lat: str, lon: str, forecast_type: str) -> str:
     if forecast_type == "hourly":
         return (
@@ -428,6 +457,318 @@ def openweather_precipitation_mm(item: dict[str, Any]) -> float | None:
             except (TypeError, ValueError):
                 pass
     return None
+
+
+def googleweather_get_nested(data: Any, *path: str) -> Any:
+    current = data
+    for key in path:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(key)
+    return current
+
+
+def googleweather_get_first_value(data: dict[str, Any], candidate_paths: list[tuple[str, ...]]) -> Any:
+    for path in candidate_paths:
+        value = googleweather_get_nested(data, *path)
+        if value is not None:
+            return value
+    return None
+
+
+def googleweather_get_float(data: dict[str, Any], candidate_paths: list[tuple[str, ...]]) -> float | None:
+    value = googleweather_get_first_value(data, candidate_paths)
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def googleweather_get_text(data: dict[str, Any], candidate_paths: list[tuple[str, ...]]) -> str | None:
+    value = googleweather_get_first_value(data, candidate_paths)
+    if isinstance(value, str) and value:
+        return value
+    return None
+
+
+def googleweather_hour_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    for key in ("forecastHours", "forecast_hours", "hours", "hourly"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            return [item for item in value if isinstance(item, dict)]
+    return []
+
+
+def googleweather_timezone_name(payload: dict[str, Any]) -> str | None:
+    for path in (
+        ("timeZone", "id"),
+        ("timeZone", "name"),
+        ("time_zone", "id"),
+        ("time_zone", "name"),
+    ):
+        value = googleweather_get_text(payload, [path])
+        if value:
+            return value
+    return None
+
+
+def googleweather_next_page_token(payload: dict[str, Any]) -> str | None:
+    for key in ("nextPageToken", "next_page_token", "pageToken", "page_token"):
+        value = payload.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return None
+
+
+def googleweather_timestamp_to_unix(value: str | None) -> int | None:
+    if not value:
+        return None
+    parsed = parse_iso_datetime(value)
+    if not parsed:
+        return None
+    return int(parsed.timestamp())
+
+
+def googleweather_weather_code(condition_type: str | None, description_text: str | None) -> int:
+    normalized_type = (condition_type or "").strip().upper()
+    normalized_desc = (description_text or "").strip().lower()
+
+    if "THUNDER" in normalized_type or "storm" in normalized_desc or "ฟ้าคะนอง" in normalized_desc:
+        return 95
+    if "HEAVY_RAIN" in normalized_type or "ฝนหนัก" in normalized_desc:
+        return 65
+    if "LIGHT_RAIN" in normalized_type or "ฝนเบา" in normalized_desc or "ฝนปรอย" in normalized_desc:
+        return 61
+    if "SHOWERS" in normalized_type or "shower" in normalized_desc or "ฝนเป็นช่วง" in normalized_desc:
+        return 80
+    if normalized_type in {"WIND_AND_RAIN", "RAIN"} or ("rain" in normalized_desc and "snow" not in normalized_desc):
+        return 63
+    if normalized_type in {"RAIN_AND_SNOW", "SLEET", "FREEZING_RAIN"}:
+        return 71
+    if normalized_type == "SNOW" or "snow" in normalized_desc:
+        return 73
+    if normalized_type == "WINDY":
+        return 3
+    if normalized_type == "CLEAR":
+        return 0
+    if normalized_type == "MOSTLY_CLEAR":
+        return 1
+    if normalized_type == "PARTLY_CLOUDY":
+        return 2
+    if normalized_type in {"MOSTLY_CLOUDY", "CLOUDY"}:
+        return 3
+    return 3
+
+
+def normalize_googleweather_item(item: dict[str, Any]) -> dict[str, Any] | None:
+    dt_value = googleweather_timestamp_to_unix(
+        googleweather_get_text(
+            item,
+            [
+                ("interval", "startTime"),
+                ("interval", "start_time"),
+                ("forecastTime",),
+                ("forecast_time",),
+                ("time",),
+            ],
+        )
+    )
+    if dt_value is None:
+        return None
+
+    percent_probability = googleweather_get_float(
+        item,
+        [
+            ("precipitation", "probability", "percent"),
+            ("precipitation", "probability", "value"),
+            ("precipitationProbability", "percent"),
+            ("precipitation_probability", "percent"),
+            ("probability", "percent"),
+            ("probability",),
+        ],
+    )
+    pop = None if percent_probability is None else max(0.0, min(1.0, percent_probability / 100.0))
+
+    precipitation_mm = googleweather_get_float(
+        item,
+        [
+            ("precipitation", "qpf", "quantity"),
+            ("precipitation", "qpf", "amount"),
+            ("precipitation", "quantity"),
+            ("precipitation", "amount"),
+            ("qpf", "quantity"),
+            ("qpf", "amount"),
+            ("rain", "quantity"),
+            ("rain", "amount"),
+            ("precipitationMm",),
+            ("precipitation_mm",),
+        ],
+    )
+
+    condition_type = googleweather_get_text(
+        item,
+        [
+            ("weatherCondition", "type"),
+            ("weather_condition", "type"),
+        ],
+    )
+    description_text = googleweather_get_text(
+        item,
+        [
+            ("weatherCondition", "description", "text"),
+            ("weather_condition", "description", "text"),
+            ("weatherCondition", "description"),
+            ("weather_condition", "description"),
+        ],
+    )
+    icon_base_uri = googleweather_get_text(
+        item,
+        [
+            ("weatherCondition", "iconBaseUri"),
+            ("weather_condition", "icon_base_uri"),
+        ],
+    )
+    weather_code = googleweather_weather_code(condition_type, description_text)
+
+    wind_speed_kmh = googleweather_get_float(
+        item,
+        [
+            ("wind", "speed", "value"),
+            ("wind", "speed", "kilometersPerHour"),
+            ("wind", "speedKph"),
+            ("wind", "speed_kph"),
+            ("wind", "speed"),
+        ],
+    )
+    wind_gust_kmh = googleweather_get_float(
+        item,
+        [
+            ("wind", "gust", "value"),
+            ("wind", "gust", "kilometersPerHour"),
+            ("wind", "gustKph"),
+            ("wind", "gust_kph"),
+            ("wind", "gust"),
+        ],
+    )
+
+    if wind_speed_kmh is None:
+        wind_speed_mps = googleweather_get_float(
+            item,
+            [
+                ("wind", "speed", "metersPerSecond"),
+                ("wind", "speed_mps"),
+            ],
+        )
+        if wind_speed_mps is not None:
+            wind_speed_kmh = wind_speed_mps * 3.6
+
+    if wind_gust_kmh is None:
+        wind_gust_mps = googleweather_get_float(
+            item,
+            [
+                ("wind", "gust", "metersPerSecond"),
+                ("wind", "gust_mps"),
+            ],
+        )
+        if wind_gust_mps is not None:
+            wind_gust_kmh = wind_gust_mps * 3.6
+
+    dew_point = googleweather_get_float(
+        item,
+        [
+            ("dewPoint", "degrees"),
+            ("dew_point", "degrees"),
+            ("dewPoint",),
+            ("dew_point",),
+        ],
+    )
+    pressure = googleweather_get_float(
+        item,
+        [
+            ("airPressure", "meanSeaLevelMillibars"),
+            ("air_pressure", "mean_sea_level_millibars"),
+        ],
+    )
+
+    weather_item = {
+        "id": weather_code,
+        "main": condition_type or "UNKNOWN",
+        "description": description_text or condition_type or "Unknown",
+    }
+    if icon_base_uri:
+        weather_item["icon_base_uri"] = icon_base_uri
+
+    return {
+        "dt": dt_value,
+        "pop": pop if pop is not None else 0.0,
+        "rain": {"1h": precipitation_mm if precipitation_mm is not None else 0.0},
+        "weather": [weather_item],
+        "wind_speed": None if wind_speed_kmh is None else wind_speed_kmh / 3.6,
+        "wind_gust": None if wind_gust_kmh is None else wind_gust_kmh / 3.6,
+        "dew_point": dew_point,
+        "pressure": pressure,
+        "raw": item,
+    }
+
+
+def fetch_googleweather_payload(lat: str, lon: str, timeout: int = 20, max_records: int = 240) -> dict[str, Any]:
+    url = build_googleweather_url(lat, lon, hours=max_records)
+    if not url:
+        raise RuntimeError("GOOGLE_WEATHER_API_KEY is missing")
+
+    hourly_items: list[dict[str, Any]] = []
+    pages_fetched = 0
+    next_page_token: str | None = None
+    timezone_name: str | None = None
+
+    while len(hourly_items) < max_records:
+        request_url = build_googleweather_url(
+            lat,
+            lon,
+            hours=max_records,
+            page_size=min(24, max_records),
+            page_token=next_page_token,
+        )
+        if not request_url:
+            break
+
+        pages_fetched += 1
+        payload = fetch_json_url(request_url, timeout=timeout)
+        timezone_name = timezone_name or googleweather_timezone_name(payload)
+
+        for raw_item in googleweather_hour_items(payload):
+            normalized = normalize_googleweather_item(raw_item)
+            if normalized:
+                hourly_items.append(normalized)
+
+        next_page_token = googleweather_next_page_token(payload)
+        if not next_page_token:
+            break
+
+    deduped: dict[int, dict[str, Any]] = {}
+    for item in hourly_items:
+        deduped.setdefault(item["dt"], item)
+
+    hourly = [deduped[key] for key in sorted(deduped.keys())][:max_records]
+
+    return {
+        "lat": float(lat),
+        "lon": float(lon),
+        "timezone": timezone_name or "Asia/Bangkok",
+        "timezone_offset": 7 * 3600,
+        "hourly": hourly,
+        "meta": {
+            "provider": "googleweather",
+            "api_version": "v1",
+            "endpoint": "forecast/hours:lookup",
+            "pages_fetched": pages_fetched,
+            "records_returned": len(hourly),
+            "requested_at": utc_now_iso(),
+            "source_url": redact_query_params(url, ("key",)),
+        },
+    }
 
 
 def normalize_temperature_celsius(value: Any) -> float | None:
@@ -1709,6 +2050,39 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
             log_event(f"Error during OpenWeather proxy request: {type(error).__name__}: {error}")
             self.respond_json({"error": str(error), "source": "openweather"}, status=500)
 
+    def handle_googleweather_forecast(self, lat, lon):
+        googleweather_url = build_googleweather_url(lat, lon)
+        if not googleweather_url:
+            self.respond_json(
+                {
+                    "error": "Google Weather API key is not configured.",
+                    "configured": False,
+                    "source": "googleweather",
+                },
+                status=503,
+            )
+            return
+
+        log_event(
+            "Proxying Google Weather request to: "
+            f"{redact_query_params(googleweather_url, ('key',))}"
+        )
+        try:
+            payload = fetch_googleweather_payload(lat, lon, timeout=20)
+            self.respond_json(payload)
+            log_event("Google Weather request completed successfully.")
+        except urllib.error.HTTPError as error:
+            error_body = error.read().decode("utf-8")
+            self.respond_json(
+                {"error": error_body, "source": "googleweather"},
+                status=error.code,
+            )
+        except Exception as error:
+            log_event(
+                f"Error during Google Weather proxy request: {type(error).__name__}: {error}"
+            )
+            self.respond_json({"error": str(error), "source": "googleweather"}, status=500)
+
     def handle_geocode(self, lat, lon):
         nominatim_url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}&zoom=10&accept-language=th"
         log_event(f"Proxying Reverse Geocode request to: {nominatim_url}")
@@ -1877,6 +2251,7 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
 
         openmeteo_paths = {"/api/openmeteo", "/api/forecast/openmeteo"}
         openweather_paths = {"/api/openweather", "/api/forecast/openweather"}
+        googleweather_paths = {"/api/googleweather", "/api/forecast/googleweather"}
         tmd_hourly_paths = {"/api/tmd", "/api/tmd/hourly", "/api/forecast/tmd/hourly"}
         tmd_daily_paths = {"/api/tmd/daily", "/api/forecast/tmd/daily"}
         tmd_warning_paths = {"/api/tmd/warning", "/api/forecast/tmd/warning"}
@@ -1905,12 +2280,13 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
                     "service": "rain-forecast-dashboard",
                     "tmd_configured": bool(os.getenv("TMD_API_TOKEN")),
                     "openweather_configured": bool(os.getenv("OPENWEATHER_API_KEY")),
+                    "googleweather_configured": bool(os.getenv("GOOGLE_WEATHER_API_KEY")),
                     "supabase_configured": is_supabase_logging_enabled(),
                 }
             )
             return
 
-        if parsed_url.path in openmeteo_paths | openweather_paths | tmd_hourly_paths | tmd_daily_paths:
+        if parsed_url.path in openmeteo_paths | openweather_paths | googleweather_paths | tmd_hourly_paths | tmd_daily_paths:
             if not lat or not lon:
                 self.respond_json({"error": "Missing parameters (lat, lon)"}, status=400)
                 return
@@ -1921,6 +2297,10 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
 
         if parsed_url.path in openweather_paths:
             self.handle_openweather_forecast(lat, lon)
+            return
+
+        if parsed_url.path in googleweather_paths:
+            self.handle_googleweather_forecast(lat, lon)
             return
 
         if parsed_url.path == "/api/geocode":

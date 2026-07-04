@@ -16,14 +16,18 @@ let selectedDate = "";
 let forecastChartInstance = null;
 let tmdAdvisoryState = null;
 let showTableWeatherIcons = localStorage.getItem("showTableWeatherIcons") !== "false";
+const savedForecastSource = localStorage.getItem("forecastSource");
+const allowedForecastSources = ["openmeteo", "openweather", "googleweather"];
 const TABLE_ICONS_ON_TEXT = t("table-icons-on");
 const TABLE_ICONS_OFF_TEXT = t("table-icons-off");
 const TABLE_ICONS_HIDE_TITLE = t("table-icons-hide-title");
 const TABLE_ICONS_SHOW_TITLE = t("table-icons-show-title");
 let sourceComparisonState = {
-  activeSource: localStorage.getItem("forecastSource") === "openweather" ? "openweather" : "openmeteo",
+  activeSource: allowedForecastSources.includes(savedForecastSource) ? savedForecastSource : "openmeteo",
   openMeteoData: [],
   openWeatherData: null,
+  googleWeatherData: null,
+  googleWeatherText: "รอการเชื่อมต่อ...",
   openWeatherText: "à¸£à¸­à¸à¸²à¸£à¹€à¸Šà¸·à¹ˆà¸­à¸¡à¸•à¹ˆà¸­...",
   openMeteoText: "กำลังโหลด...",
   tmdText: "รอการเชื่อมต่อ...",
@@ -40,6 +44,7 @@ const activeSourceTitle = document.getElementById("active-source-title");
 const activeSourceCaption = document.getElementById("active-source-caption");
 const btnSourceOpenMeteo = document.getElementById("btn-source-openmeteo");
 const btnSourceOpenWeather = document.getElementById("btn-source-openweather");
+const btnSourceGoogleWeather = document.getElementById("btn-source-googleweather");
 const btnToggleTableIcons = document.getElementById("btn-toggle-table-icons");
 const kpiPeakWindow = document.getElementById("kpi-peak-window");
 const kpiPeakDetail = document.getElementById("kpi-peak-detail");
@@ -102,6 +107,9 @@ tableHoverTooltip.className = "forecast-hover-tooltip hidden";
 document.body.appendChild(tableHoverTooltip);
 
 function getForecastDataBySource(sourceKey) {
+  if (sourceKey === "googleweather") {
+    return Array.isArray(sourceComparisonState.googleWeatherData) ? sourceComparisonState.googleWeatherData : [];
+  }
   if (sourceKey === "openweather") {
     return Array.isArray(sourceComparisonState.openWeatherData) ? sourceComparisonState.openWeatherData : [];
   }
@@ -109,6 +117,12 @@ function getForecastDataBySource(sourceKey) {
 }
 
 function getForecastSourceMeta(sourceKey) {
+  if (sourceKey === "googleweather") {
+    return {
+      title: "Google Weather 240 ชม.",
+      caption: "ใช้ดูแนวโน้มรายชั่วโมงระยะกลางจาก Google Weather ได้ประมาณ 10 วัน"
+    };
+  }
   if (sourceKey === "openweather") {
     return {
       title: "OpenWeather 48 ชม.",
@@ -126,6 +140,7 @@ function updateSourceToggleUI() {
   const activeSource = sourceComparisonState.activeSource || "openmeteo";
   const openMeteoAvailable = getForecastDataBySource("openmeteo").length > 0;
   const openWeatherAvailable = getForecastDataBySource("openweather").length > 0;
+  const googleWeatherAvailable = getForecastDataBySource("googleweather").length > 0;
   const activeMeta = getForecastSourceMeta(activeSource);
 
   if (activeSourceTitle) activeSourceTitle.textContent = activeMeta.title;
@@ -147,6 +162,15 @@ function updateSourceToggleUI() {
     btnSourceOpenWeather.title = openWeatherAvailable
       ? "สลับไปดูข้อมูล OpenWeather ระยะ 48 ชั่วโมง"
       : "OpenWeather ยังไม่มีข้อมูลในรอบนี้";
+  }
+
+  if (btnSourceGoogleWeather) {
+    btnSourceGoogleWeather.disabled = !googleWeatherAvailable;
+    btnSourceGoogleWeather.classList.toggle("active", activeSource === "googleweather");
+    btnSourceGoogleWeather.setAttribute("aria-pressed", activeSource === "googleweather" ? "true" : "false");
+    btnSourceGoogleWeather.title = googleWeatherAvailable
+      ? "สลับไปดูข้อมูล Google Weather ระยะประมาณ 240 ชั่วโมง"
+      : "Google Weather ยังไม่มีข้อมูลในรอบนี้";
   }
 }
 
@@ -240,13 +264,10 @@ function setTableIconVisibility(showIcons) {
 }
 
 function setActiveForecastSource(sourceKey) {
+  const sourcePriority = ["openmeteo", "openweather", "googleweather"];
   const fallbackSource = getForecastDataBySource(sourceKey).length > 0
     ? sourceKey
-    : getForecastDataBySource("openmeteo").length > 0
-      ? "openmeteo"
-      : getForecastDataBySource("openweather").length > 0
-        ? "openweather"
-        : null;
+    : sourcePriority.find((key) => getForecastDataBySource(key).length > 0);
   if (!fallbackSource) return;
   const nextData = getForecastDataBySource(fallbackSource);
   if (!nextData.length) return;
@@ -788,10 +809,13 @@ function openComparisonModal(dateStr, hour) {
 
   const omDay = sourceComparisonState.openMeteoData.find(d => d.date === dateStr);
   const owDay = sourceComparisonState.openWeatherData ? sourceComparisonState.openWeatherData.find(d => d.date === dateStr) : null;
+  const gwDay = sourceComparisonState.googleWeatherData ? sourceComparisonState.googleWeatherData.find(d => d.date === dateStr) : null;
   
   const omEntry = omDay ? omDay.values[hour] : null;
   let owEntry = owDay ? owDay.values[hour] : null;
   let owHourUsed = hour;
+  let gwEntry = gwDay ? gwDay.values[hour] : null;
+  let gwHourUsed = hour;
 
   if (owDay && !owEntry) {
     const targetHourNum = parseInt(hour.split(':')[0], 10);
@@ -816,6 +840,27 @@ function openComparisonModal(dateStr, hour) {
   }
 
   comparisonTimeTitle.textContent = `เปรียบเทียบข้อมูล: ${formatDate(dateStr)} ${hour} น.`;
+
+  if (gwDay && !gwEntry) {
+    const targetHourNum = parseInt(hour.split(':')[0], 10);
+    const availableHours = Object.keys(gwDay.values);
+    if (availableHours.length > 0) {
+      let closestHour = availableHours[0];
+      let minDiff = Infinity;
+      for (const avHour of availableHours) {
+        const hNum = parseInt(avHour.split(':')[0], 10);
+        const diff = Math.abs(hNum - targetHourNum);
+        if (diff < minDiff) {
+          minDiff = diff;
+          closestHour = avHour;
+        }
+      }
+      if (minDiff <= 3) {
+        gwEntry = gwDay.values[closestHour];
+        gwHourUsed = closestHour;
+      }
+    }
+  }
 
   let html = '';
   
@@ -851,6 +896,26 @@ function openComparisonModal(dateStr, hour) {
     `;
   }
   
+  if (gwEntry) {
+    const weather = getWeatherDetails(gwEntry.weatherCode, gwEntry.precipitation, gwEntry.windGust, gwEntry.probability);
+    const timeNote = (gwHourUsed !== hour) ? ` <span style="font-size: 0.8rem; color: #64748b;">(เวลาใกล้เคียง: ${gwHourUsed} น.)</span>` : '';
+    html += `
+      <div style="padding: 1rem; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px;">
+        <h4 style="margin: 0 0 0.5rem 0; color: #2563eb;">${sourceComparisonState.activeSource === "googleweather" ? "Google Weather (หลัก)" : "Google Weather (เปรียบเทียบ)"}${timeNote}</h4>
+        <div>โอกาสฝน: ${Math.round(gwEntry.probability * 100)}%</div>
+        <div>ปริมาณฝนคาดการณ์: ${formatMillimeters(gwEntry.precipitation)}</div>
+        <div>สภาพอากาศ: ${weather.label}</div>
+      </div>
+    `;
+  } else {
+    html += `
+      <div style="padding: 1rem; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; opacity: 0.7;">
+        <h4 style="margin: 0 0 0.5rem 0; color: #2563eb;">${sourceComparisonState.activeSource === "googleweather" ? "Google Weather (หลัก)" : "Google Weather (เปรียบเทียบ)"}</h4>
+        <div>ไม่มีข้อมูลในช่วงเวลานี้ หรือยังไม่ได้ตั้งค่า API Key</div>
+      </div>
+    `;
+  }
+
   const agreement = getAgreementLevel(omEntry, owEntry);
   if (agreement === "agree") {
     html += `<div style="padding: 0.5rem; text-align: center; color: #10b981; font-weight: bold; background: rgba(16, 185, 129, 0.1); border-radius: 8px;"><i class="fa-solid fa-check-circle"></i> สองโมเดลมีความเห็นสอดคล้องกัน</div>`;
@@ -1341,6 +1406,64 @@ async function fetchOpenWeatherForecast(lat, lon) {
   };
 }
 
+async function fetchGoogleWeatherForecast(lat, lon) {
+  const response = await fetch(`/api/forecast/googleweather?lat=${lat}&lon=${lon}&_t=${Date.now()}`);
+  if (!response.ok) {
+    if (response.status === 503) {
+      throw { status: 503, message: "Google Weather API key is not configured" };
+    }
+    throw new Error(`Google Weather returned status ${response.status}`);
+  }
+
+  const data = await response.json();
+  const hourly = data.list || data.hourly || [];
+  const grouped = {};
+
+  hourly.forEach((item) => {
+    if (!item.dt) return;
+
+    const dateObj = new Date(item.dt * 1000);
+    const dateStr = dateObj.toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+    const hourKey = dateObj.toLocaleTimeString("en-GB", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit" });
+
+    if (!grouped[dateStr]) grouped[dateStr] = {};
+
+    const probability = item.pop !== undefined ? clampProbability(item.pop * 100) : null;
+    const precipitation = Number(item.rain?.["3h"] ?? item.rain?.["1h"] ?? item.precipitation ?? 0);
+    const weatherCode = item.weather && item.weather[0] ? item.weather[0].id : 0;
+
+    let windSpeed = 0;
+    let windGust = 0;
+    if (item.wind) {
+      windSpeed = Number(item.wind.speed ?? 0) * 3.6;
+      windGust = Number(item.wind.gust ?? 0) * 3.6;
+    } else {
+      windSpeed = Number(item.wind_speed ?? 0) * 3.6;
+      windGust = Number(item.wind_gust ?? 0) * 3.6;
+    }
+
+    grouped[dateStr][hourKey] = {
+      probability,
+      precipitation: Number.isFinite(precipitation) ? precipitation : 0,
+      weatherCode: Number.isFinite(weatherCode) ? weatherCode : 0,
+      windSpeed: Number.isFinite(windSpeed) ? windSpeed : 0,
+      windGust: Number.isFinite(windGust) ? windGust : 0
+    };
+  });
+
+  const forecastDays = Object.keys(grouped)
+    .sort()
+    .map((dateStr) => ({
+      date: dateStr,
+      values: grouped[dateStr]
+    }));
+
+  return {
+    forecastDays,
+    statusText: forecastDays.length ? "เชื่อมต่อ Google Weather สำเร็จ" : "ไม่มีข้อมูลจาก Google Weather"
+  };
+}
+
 async function fetchJsonWithMeta(url, label) {
   const response = await fetch(url);
   const data = await response.json();
@@ -1641,6 +1764,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   if (btnSourceOpenWeather) {
     btnSourceOpenWeather.addEventListener("click", () => setActiveForecastSource("openweather"));
+  }
+  if (btnSourceGoogleWeather) {
+    btnSourceGoogleWeather.addEventListener("click", () => setActiveForecastSource("googleweather"));
   }
   if (btnToggleTableIcons) {
     btnToggleTableIcons.addEventListener("click", () => {
@@ -2090,7 +2216,8 @@ function renderTable() {
         }
         
         // Add agreement badge
-        if (showTableWeatherIcons) {
+        const supportsAgreement = sourceComparisonState.activeSource === "openmeteo" || sourceComparisonState.activeSource === "openweather";
+        if (showTableWeatherIcons && supportsAgreement) {
           const owDay = (sourceComparisonState.activeSource === "openweather" ? sourceComparisonState.openMeteoData : sourceComparisonState.openWeatherData)
             ? (sourceComparisonState.activeSource === "openweather" ? sourceComparisonState.openMeteoData : sourceComparisonState.openWeatherData).find(d => d.date === day.date)
             : null;
@@ -2381,10 +2508,11 @@ async function fetchDashboardData() {
       }
     }
 
-    const [openMeteoResult, tmdResult, openWeatherResult] = await Promise.allSettled([
+    const [openMeteoResult, tmdResult, openWeatherResult, googleWeatherResult] = await Promise.allSettled([
       fetchOpenMeteoForecast(currentLat, currentLon),
       fetchTmdForecastSummary(currentLat, currentLon),
-      fetchOpenWeatherForecast(currentLat, currentLon)
+      fetchOpenWeatherForecast(currentLat, currentLon),
+      fetchGoogleWeatherForecast(currentLat, currentLon)
     ]);
 
     const openMeteoAvailable = openMeteoResult.status === "fulfilled" && openMeteoResult.value.forecastDays.length > 0;
@@ -2427,20 +2555,30 @@ async function fetchDashboardData() {
       sourceComparisonState.openWeatherData = null;
     }
 
+    if (googleWeatherResult && googleWeatherResult.status === "fulfilled") {
+      sourceComparisonState.googleWeatherText = googleWeatherResult.value.statusText;
+      sourceComparisonState.googleWeatherData = googleWeatherResult.value.forecastDays;
+    } else {
+      sourceComparisonState.googleWeatherText = (googleWeatherResult && googleWeatherResult.reason && googleWeatherResult.reason.message)
+        ? googleWeatherResult.reason.message
+        : "ล้มเหลว";
+      sourceComparisonState.googleWeatherData = null;
+    }
+
     const hasOpenMeteoData = getForecastDataBySource("openmeteo").length > 0;
     const hasOpenWeatherData = getForecastDataBySource("openweather").length > 0;
-    if (!hasOpenMeteoData && !hasOpenWeatherData) {
+    const hasGoogleWeatherData = getForecastDataBySource("googleweather").length > 0;
+    if (!hasOpenMeteoData && !hasOpenWeatherData && !hasGoogleWeatherData) {
       if (openMeteoResult.status !== "fulfilled") {
         throw openMeteoResult.reason;
       }
-      throw new Error("No forecast data available from Open-Meteo or OpenWeather");
+      throw new Error("No forecast data available from Open-Meteo, OpenWeather, or Google Weather");
     }
 
-    const preferredSource = !hasOpenMeteoData && hasOpenWeatherData
-      ? "openweather"
-      : sourceComparisonState.activeSource === "openweather" && hasOpenWeatherData
-        ? "openweather"
-        : "openmeteo";
+    const availableSources = ["openmeteo", "openweather", "googleweather"].filter((key) => getForecastDataBySource(key).length > 0);
+    const preferredSource = availableSources.includes(sourceComparisonState.activeSource)
+      ? sourceComparisonState.activeSource
+      : availableSources[0];
     sourceComparisonState.activeSource = preferredSource;
     activeForecastData = getForecastDataBySource(preferredSource);
     updateSourceToggleUI();
