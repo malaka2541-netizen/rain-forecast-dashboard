@@ -29,6 +29,9 @@ DEFAULT_OBSERVATION_PROVINCES = [
 ]
 BANGKOK_TIMEZONE = timezone(timedelta(hours=7))
 OPENMETEO_PROXY_CACHE: dict[str, dict[str, Any]] = {}
+OPENMETEO_LIVE_TIMEOUT_SECONDS = 8
+OPENMETEO_LIVE_ATTEMPTS = 1
+OPENWEATHER_CALIBRATION_TIMEOUT_SECONDS = 8
 
 
 def log_event(message: str) -> None:
@@ -1566,13 +1569,22 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
         log_event(f"Proxying Open-Meteo request to: {openmeteo_url}")
 
         try:
-            response_body = self.fetch_json(openmeteo_url, timeout=20, attempts=3)
+            response_body = self.fetch_json(
+                openmeteo_url,
+                timeout=OPENMETEO_LIVE_TIMEOUT_SECONDS,
+                attempts=OPENMETEO_LIVE_ATTEMPTS,
+            )
             payload = json.loads(response_body.decode("utf-8"))
             
             # Apply probability calibration (Shadow Mode) if OpenWeather is configured
             try:
                 if build_openweather_url(lat, lon):
-                    ow_payload = fetch_openweather_payload(lat, lon, timeout=15, max_records=72)
+                    ow_payload = fetch_openweather_payload(
+                        lat,
+                        lon,
+                        timeout=OPENWEATHER_CALIBRATION_TIMEOUT_SECONDS,
+                        max_records=72,
+                    )
                     payload = self.apply_probability_calibration(payload, ow_payload)
             except Exception as e:
                 log_event(f"Could not apply OpenWeather calibration: {e}")
