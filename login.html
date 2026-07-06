@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Login - Rain Forecast Dashboard</title>
+  <link rel="stylesheet" href="style-v1.6.css?v=2.7" />
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 1rem;
+    }
+    .login-container {
+      width: 100%;
+      max-width: 400px;
+      padding: 2rem;
+      text-align: center;
+    }
+    .login-header {
+      margin-bottom: 2rem;
+    }
+    .login-header i {
+      font-size: 3rem;
+      color: #0ea5e9;
+      margin-bottom: 1rem;
+    }
+    .login-header h1 {
+      font-size: 1.5rem;
+      margin: 0;
+      color: #0f172a;
+    }
+    .login-form .input-group {
+      margin-bottom: 1.5rem;
+      text-align: left;
+    }
+    .login-form .input-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      color: #334155;
+    }
+    .login-form .input-with-icon {
+      position: relative;
+    }
+    .login-form .input-with-icon i {
+      position: absolute;
+      left: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #64748b;
+    }
+    .login-form .input-with-icon input {
+      width: 100%;
+      padding: 0.75rem 1rem 0.75rem 2.5rem;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.6);
+      font-family: inherit;
+      font-size: 1rem;
+      transition: all 0.2s ease;
+      box-sizing: border-box;
+    }
+    .login-form .input-with-icon input:focus {
+      outline: none;
+      border-color: #0ea5e9;
+      background: #ffffff;
+      box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
+    }
+    .btn-login {
+      width: 100%;
+      padding: 0.75rem;
+      background: #0ea5e9;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn-login:hover {
+      background: #0284c7;
+    }
+    .btn-login:disabled {
+      background: #94a3b8;
+      cursor: not-allowed;
+    }
+    .error-message {
+      color: #ef4444;
+      background: #fee2e2;
+      padding: 0.75rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      font-size: 0.875rem;
+      display: none;
+    }
+    .auth-links {
+      margin-top: 1.5rem;
+      font-size: 0.875rem;
+      color: #64748b;
+    }
+    .auth-links a {
+      color: #0ea5e9;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .auth-links a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <!-- Animated Background -->
+  <div class="bg-animation">
+    <div class="glow-blob blob-1"></div>
+    <div class="glow-blob blob-2"></div>
+    <div class="glow-blob blob-3"></div>
+  </div>
+
+  <div class="login-container glass-card animate-fade-in">
+    <div class="login-header">
+      <i class="fa-solid fa-cloud-sun-rain"></i>
+      <h1>Rain Forecast Dashboard</h1>
+      <p style="color: #64748b; font-size: 0.9rem; margin-top: 0.5rem;">เข้าสู่ระบบเพื่อดำเนินการต่อ</p>
+    </div>
+
+    <div id="error-alert" class="error-message">
+      <i class="fa-solid fa-circle-exclamation"></i> <span id="error-text"></span>
+    </div>
+
+    <form id="login-form" class="login-form">
+      <div class="input-group">
+        <label>อีเมล (Email)</label>
+        <div class="input-with-icon">
+          <i class="fa-solid fa-envelope"></i>
+          <input type="email" id="email" required placeholder="name@example.com" />
+        </div>
+      </div>
+      <div class="input-group">
+        <label>รหัสผ่าน (Password)</label>
+        <div class="input-with-icon">
+          <i class="fa-solid fa-lock"></i>
+          <input type="password" id="password" required placeholder="••••••••" />
+        </div>
+      </div>
+      <button type="submit" id="submit-btn" class="btn-login">
+        เข้าสู่ระบบ
+      </button>
+    </form>
+    
+    <div class="auth-links">
+      <p>ต้องการความช่วยเหลือ? <a href="mailto:support@example.com">ติดต่อผู้ดูแลระบบ</a></p>
+    </div>
+  </div>
+
+  <script src="login.js?v=1.0"></script>
+</body>
+</html>

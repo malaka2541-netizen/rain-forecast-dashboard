@@ -5,7 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="ระบบพยากรณ์โอกาสเกิดฝนล่วงหน้า 10 วัน พร้อมมุมมองรายชั่วโมงเพื่อช่วยวางแผนงานกลางแจ้ง">
   <meta name="keywords" content="พยากรณ์ฝน, โอกาสเกิดฝน, งานกลางแจ้ง, เทคอนกรีต, วางแผนฝน">
-  <title>Rain Forecast Dashboard - ระบบพยากรณ์โอกาสเกิดฝน</title>
+  <title>Rain Forecast Dashboard - ตารางรายงานฝน</title>
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -48,6 +51,10 @@
         <button id="btn-open-guide" class="btn btn-secondary" type="button">
           <i class="fa-solid fa-circle-question"></i>
           <span data-i18n="btn-guide">วิธีอ่านข้อมูล</span>
+        </button>
+        <button id="btn-logout" class="btn btn-secondary" type="button" style="color: #ef4444; border-color: #fecaca; display: none;">
+          <i class="fa-solid fa-right-from-bracket"></i>
+          <span>ออกจากระบบ</span>
         </button>
       </div>
     </header>
@@ -436,6 +443,7 @@
 
   <link rel="stylesheet" href="style-v1.6.css?v=2.7" />
   <script src="i18n.js?v=1.8"></script>
+  <script src="auth-guard.js?v=1.0"></script>
   <script src="app-v1.6.js?v=2.6" defer></script>
 </body>
 </html>

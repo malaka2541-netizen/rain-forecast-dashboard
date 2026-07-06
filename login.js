@@ -1,0 +1,77 @@
+document.addEventListener('DOMContentLoaded', async () => {
+  const loginForm = document.getElementById('login-form');
+  const emailInput = document.getElementById('email');
+  const passwordInput = document.getElementById('password');
+  const submitBtn = document.getElementById('submit-btn');
+  const errorAlert = document.getElementById('error-alert');
+  const errorText = document.getElementById('error-text');
+
+  function showError(msg) {
+    errorText.textContent = msg;
+    errorAlert.style.display = 'block';
+    setTimeout(() => {
+      errorAlert.style.display = 'none';
+    }, 5000);
+  }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'กำลังโหลดตั้งค่า...';
+
+  try {
+    // 1. Fetch config from server
+    const response = await fetch('/api/config');
+    if (!response.ok) throw new Error('Failed to load configuration');
+    const config = await response.json();
+
+    if (!config.supabaseUrl || !config.supabaseAnonKey) {
+      throw new Error('Supabase configuration is missing. Please check server environment variables.');
+    }
+
+    // 2. Initialize Supabase
+    const supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+
+    // 3. Check if already logged in
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      window.location.replace('/'); // Redirect to dashboard
+      return;
+    }
+
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'เข้าสู่ระบบ';
+
+    // 4. Handle Login
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+      
+      if (!email || !password) {
+        showError('กรุณากรอกอีเมลและรหัสผ่านให้ครบถ้วน');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังเข้าสู่ระบบ...';
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password,
+      });
+
+      if (error) {
+        showError(error.message === 'Invalid login credentials' ? 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' : 'เกิดข้อผิดพลาด: ' + error.message);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'เข้าสู่ระบบ';
+      } else {
+        // Login success, redirect to dashboard
+        window.location.replace('/');
+      }
+    });
+
+  } catch (err) {
+    showError(err.message);
+    submitBtn.textContent = 'เกิดข้อผิดพลาดในการเชื่อมต่อ';
+  }
+});

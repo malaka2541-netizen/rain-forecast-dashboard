@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  #container {
+    width: 800px;
+    height: 500px;
+    border: 2px solid red;
+    overflow: hidden; /* Hide anything outside */
+    position: relative;
+    background: #f0f0f0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  #bma-iframe {
+    position: absolute;
+    /* Massive size so scrollbars are always pushed way outside the container */
+    width: 2000px; 
+    height: 2000px;
+    /* Center the 965x800 image which is located at approx x=0, y=140 in the iframe */
+    /* top = 50% - (half of 2000) - offset_to_center_of_image */
+    /* Wait, much easier: */
+    top: calc(50% - 1000px - 70px); 
+    left: calc(50% - 1000px);
+    border: none;
+    /* Allow pointer events so tooltips work */
+  }
+</style>
+</head>
+<body>
+  <div id="container">
+    <iframe id="bma-iframe" scrolling="no" src="https://weather.bangkok.go.th/radar/RadarAnimationNk.aspx"></iframe>
+  </div>
+</body>
+</html>

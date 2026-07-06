@@ -2517,6 +2517,15 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_geocode(lat, lon)
             return
 
+        if parsed_url.path == "/api/config":
+            self.respond_json(
+                {
+                    "supabaseUrl": os.getenv("SUPABASE_URL", ""),
+                    "supabaseAnonKey": os.getenv("SUPABASE_ANON_KEY", ""),
+                }
+            )
+            return
+
         if parsed_url.path in tmd_hourly_paths:
             self.handle_tmd_forecast(lat, lon, "hourly", query_params)
             return
