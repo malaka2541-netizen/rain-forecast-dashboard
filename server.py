@@ -2350,8 +2350,57 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
 
     def handle_tmd_public_feed(self, feed_type, query_params):
         if feed_type == "warning":
-            uid = os.getenv("TMD_WARNING_UID") or query_params.get("uid", ["demo"])[0]
-            ukey = os.getenv("TMD_WARNING_UKEY") or query_params.get("ukey", ["demokey"])[0]
+            uid = os.getenv("TMD_WARNING_UID") or query_params.get("uid", [""])[0]
+            ukey = os.getenv("TMD_WARNING_UKEY") or query_params.get("ukey", [""])[0]
+            
+            if not uid or uid == "demo":
+                try:
+                    import urllib.request
+                    import re
+                    import ssl
+                    import html as html_parser
+                    
+                    ctx = ssl.create_default_context()
+                    ctx.check_hostname = False
+                    ctx.verify_mode = ssl.CERT_NONE
+                    
+                    req = urllib.request.Request("https://www.tmd.go.th/warning-and-events/warning-storm", headers={'User-Agent': 'Mozilla/5.0'})
+                    with urllib.request.urlopen(req, context=ctx, timeout=10) as response:
+                        html_content = response.read().decode('utf-8')
+                        
+                        pattern = r'<div class="link-list-title">\s*<a href="(/warning-and-events/warning-storm/[^"]+)">(.*?)</a>\s*</div>'
+                        match = re.search(pattern, html_content)
+                        
+                        if match:
+                            url_path = match.group(1)
+                            title = html_parser.unescape(match.group(2).strip())
+                            
+                            desc_pattern = r'<div class="link-list-description">\s*<a[^>]*>(.*?)</a>'
+                            desc_match = re.search(desc_pattern, html_content[match.end():match.end()+2000])
+                            description = html_parser.unescape(desc_match.group(1).strip()) if desc_match else ""
+                            
+                            date_pattern = r'วันที่ข้อมูล: (.*?) \|'
+                            date_match = re.search(date_pattern, html_content[match.end():match.end()+2000])
+                            date_str = html_parser.unescape(date_match.group(1).strip()) if date_match else ""
+                            
+                            payload = {
+                                "Warning": {
+                                    "TitleThai": title,
+                                    "HeadlineThai": title,
+                                    "DescriptionThai": description,
+                                    "AnnounceDate": date_str,
+                                    "WebUrlThai": f"https://www.tmd.go.th{url_path}",
+                                    "TitleEnglish": "",
+                                    "HeadlineEnglish": "",
+                                    "DescriptionEnglish": "",
+                                    "ContactThai": ""
+                                },
+                                "source": "tmd-warning-scraped"
+                            }
+                            self.respond_json(payload)
+                            return
+                except Exception as e:
+                    print(f"Scraping warning failed: {e}")
         else:
             uid = os.getenv("TMD_PUBLIC_UID") or query_params.get("uid", ["api"])[0]
             ukey = os.getenv("TMD_PUBLIC_UKEY") or query_params.get("ukey", ["api12345"])[0]
