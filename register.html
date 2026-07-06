@@ -57,6 +57,15 @@
       transform: translateY(-50%);
       color: #64748b;
     }
+    .login-form .input-with-icon i.toggle-password {
+      left: auto;
+      right: 1rem;
+      cursor: pointer;
+      pointer-events: auto;
+    }
+    .login-form .input-with-icon input[type="password"] {
+      padding-right: 2.5rem;
+    }
     .login-form .input-with-icon input {
       width: 100%;
       padding: 0.75rem 1rem 0.75rem 2.5rem;
@@ -150,6 +159,7 @@
         <div class="input-with-icon">
           <i class="fa-solid fa-lock"></i>
           <input type="password" id="password" required placeholder="••••••••" />
+          <i class="fa-solid fa-eye toggle-password" id="toggle-password"></i>
         </div>
       </div>
       <button type="submit" id="submit-btn" class="btn-login">สมัครสมาชิก</button>

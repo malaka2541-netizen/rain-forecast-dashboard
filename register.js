@@ -6,6 +6,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   const submitBtn = document.getElementById('submit-btn');
   const errorAlert = document.getElementById('error-alert');
   const errorText = document.getElementById('error-text');
+  const togglePasswordBtn = document.getElementById('toggle-password');
+
+  if (togglePasswordBtn && passwordInput) {
+    togglePasswordBtn.addEventListener('click', () => {
+      const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+      passwordInput.setAttribute('type', type);
+      togglePasswordBtn.className = type === 'password' ? 'fa-solid fa-eye toggle-password' : 'fa-solid fa-eye-slash toggle-password';
+    });
+  }
 
   function showError(msg) {
     errorText.textContent = msg;
