@@ -17,6 +17,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   submitBtn.disabled = true;
   submitBtn.textContent = 'กำลังโหลดตั้งค่า...';
 
+  let isLoginMode = true;
+  const toggleModeBtn = document.getElementById('toggle-mode-btn');
+  const toggleModeText = document.getElementById('toggle-mode-text');
+
+  toggleModeBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    isLoginMode = !isLoginMode;
+    if (isLoginMode) {
+      submitBtn.textContent = 'เข้าสู่ระบบ';
+      toggleModeText.innerHTML = 'ยังไม่มีบัญชีผู้ใช้? <a href="#" id="toggle-mode-btn">สมัครสมาชิก</a>';
+    } else {
+      submitBtn.textContent = 'สมัครสมาชิก';
+      toggleModeText.innerHTML = 'มีบัญชีอยู่แล้ว? <a href="#" id="toggle-mode-btn">เข้าสู่ระบบ</a>';
+    }
+    // Re-attach event listener to the newly created element
+    document.getElementById('toggle-mode-btn').addEventListener('click', arguments.callee);
+  });
+
   try {
     // 1. Fetch config from server
     const response = await fetch('/api/config');
@@ -38,9 +56,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     submitBtn.disabled = false;
-    submitBtn.textContent = 'เข้าสู่ระบบ';
+    submitBtn.textContent = isLoginMode ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก';
 
-    // 4. Handle Login
+    // 4. Handle Login / Signup
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       
@@ -53,19 +71,43 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       submitBtn.disabled = true;
-      submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังเข้าสู่ระบบ...';
+      submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังดำเนินการ...';
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password,
-      });
+      let authResult;
+      
+      if (isLoginMode) {
+        authResult = await supabase.auth.signInWithPassword({ email, password });
+      } else {
+        authResult = await supabase.auth.signUp({ email, password });
+      }
+
+      const { data, error } = authResult;
 
       if (error) {
-        showError(error.message === 'Invalid login credentials' ? 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' : 'เกิดข้อผิดพลาด: ' + error.message);
+        let errorMsg = 'เกิดข้อผิดพลาด: ' + error.message;
+        if (error.message === 'Invalid login credentials') errorMsg = 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
+        if (error.message.includes('already registered')) errorMsg = 'อีเมลนี้ถูกลงทะเบียนไว้แล้ว';
+        showError(errorMsg);
         submitBtn.disabled = false;
-        submitBtn.textContent = 'เข้าสู่ระบบ';
+        submitBtn.textContent = isLoginMode ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก';
       } else {
-        // Login success, redirect to dashboard
+        if (!isLoginMode && data.user && data.user.identities && data.user.identities.length === 0) {
+            showError('อีเมลนี้มีอยู่ในระบบแล้ว โปรดเข้าสู่ระบบ');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'สมัครสมาชิก';
+            return;
+        }
+        
+        // If "Confirm email" is ON, session might be null after sign up
+        if (!isLoginMode && !data.session) {
+            alert('สมัครสมาชิกสำเร็จ! กรุณาตรวจสอบอีเมลของคุณเพื่อยืนยันบัญชี');
+            // Switch back to login
+            document.getElementById('toggle-mode-btn').click();
+            submitBtn.disabled = false;
+            return;
+        }
+        
+        // Login/Signup success, redirect to dashboard
         window.location.replace('/');
       }
     });

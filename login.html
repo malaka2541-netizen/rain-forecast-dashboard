@@ -117,13 +117,10 @@
     }
   </style>
 </head>
-<body>
+<body class="light-theme">
   <!-- Animated Background -->
-  <div class="bg-animation">
-    <div class="glow-blob blob-1"></div>
-    <div class="glow-blob blob-2"></div>
-    <div class="glow-blob blob-3"></div>
-  </div>
+  <div class="glow-bg glow-1"></div>
+  <div class="glow-bg glow-2"></div>
 
   <div class="login-container glass-card animate-fade-in">
     <div class="login-header">
@@ -156,11 +153,12 @@
       </button>
     </form>
     
-    <div class="auth-links">
-      <p>ต้องการความช่วยเหลือ? <a href="mailto:support@example.com">ติดต่อผู้ดูแลระบบ</a></p>
+    <div class="auth-links" style="margin-top: 1rem; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 1rem;">
+      <p id="toggle-mode-text">ยังไม่มีบัญชีผู้ใช้? <a href="#" id="toggle-mode-btn">สมัครสมาชิก</a></p>
+      <p style="margin-top: 0.5rem;">ต้องการความช่วยเหลือ? <a href="mailto:support@example.com">ติดต่อผู้ดูแลระบบ</a></p>
     </div>
   </div>
 
-  <script src="login.js?v=1.0"></script>
+  <script src="login.js?v=1.1"></script>
 </body>
 </html>
