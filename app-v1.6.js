@@ -1149,7 +1149,8 @@ function normalizeTmdDailySummary(responseData) {
     detail: dateLabel ? `พยากรณ์ 24 ชม. | ${dateLabel}` : "พยากรณ์ 24 ชม. จาก TMD",
     severity: inferTmdAlertSeverity(label),
     source: "daily-summary",
-    tickerText: overviewThai
+    tickerText: overviewThai,
+    url: "https://www.tmd.go.th/forecast/daily"
   };
 }
 

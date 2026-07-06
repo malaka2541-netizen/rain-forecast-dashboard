@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const loginForm = document.getElementById('login-form');
+  const nameInput = document.getElementById('name');
   const emailInput = document.getElementById('email');
   const passwordInput = document.getElementById('password');
   const submitBtn = document.getElementById('submit-btn');
@@ -39,7 +40,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     submitBtn.disabled = false;
-    submitBtn.textContent = 'เข้าสู่ระบบ';
+    submitBtn.textContent = 'สมัครสมาชิก';
     // 4. Handle Login / Signup
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -55,16 +56,40 @@ document.addEventListener('DOMContentLoaded', async () => {
       submitBtn.disabled = true;
       submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังดำเนินการ...';
 
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const name = nameInput.value.trim();
+      
+      const { data, error } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: {
+          data: {
+            full_name: name
+          }
+        }
+      });
 
       if (error) {
         let errorMsg = 'เกิดข้อผิดพลาด: ' + error.message;
-        if (error.message === 'Invalid login credentials') errorMsg = 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
+        if (error.message.includes('already registered')) errorMsg = 'อีเมลนี้ถูกลงทะเบียนไว้แล้ว';
         showError(errorMsg);
         submitBtn.disabled = false;
-        submitBtn.textContent = 'เข้าสู่ระบบ';
+        submitBtn.textContent = 'สมัครสมาชิก';
       } else {
-        // Login/Signup success, redirect to dashboard
+        if (data.user && data.user.identities && data.user.identities.length === 0) {
+            showError('อีเมลนี้มีอยู่ในระบบแล้ว โปรดเข้าสู่ระบบ');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'สมัครสมาชิก';
+            return;
+        }
+        
+        // If "Confirm email" is ON, session might be null after sign up
+        if (!data.session) {
+            alert('สมัครสมาชิกสำเร็จ! กรุณาตรวจสอบอีเมลของคุณเพื่อยืนยันบัญชี');
+            window.location.replace('login.html');
+            return;
+        }
+        
+        // Signup success, redirect to dashboard
         window.location.replace('/');
       }
     });

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Login - Rain Forecast Dashboard</title>
+  <title>Register - Rain Forecast Dashboard</title>
   <link rel="stylesheet" href="style-v1.6.css?v=2.7" />
   <!-- FontAwesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -126,7 +126,7 @@
     <div class="login-header">
       <i class="fa-solid fa-cloud-sun-rain"></i>
       <h1>Rain Forecast Dashboard</h1>
-      <p style="color: #64748b; font-size: 0.9rem; margin-top: 0.5rem;">เข้าสู่ระบบเพื่อดำเนินการต่อ</p>
+      <p style="color: #64748b; font-size: 0.9rem; margin-top: 0.5rem;">สมัครสมาชิกเพื่อดำเนินการต่อ</p>
     </div>
 
     <div id="error-alert" class="error-message">
@@ -134,6 +134,10 @@
     </div>
 
     <form id="login-form" class="login-form">
+      <div class="input-group" id="name-group">
+        <label for="name">ชื่อ (Name)</label>
+        <input type="text" id="name" placeholder="ชื่อของคุณ" />
+      </div>
       <div class="input-group">
         <label>อีเมล (Email)</label>
         <div class="input-with-icon">
@@ -148,17 +152,15 @@
           <input type="password" id="password" required placeholder="••••••••" />
         </div>
       </div>
-      <button type="submit" id="submit-btn" class="btn-login">
-        เข้าสู่ระบบ
-      </button>
+      <button type="submit" id="submit-btn" class="btn-login">สมัครสมาชิก</button>
     </form>
     
     <div class="auth-links" style="margin-top: 1rem; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 1rem;">
-      <p id="toggle-mode-text">ยังไม่มีบัญชีผู้ใช้? <a href="register.html">สมัครสมาชิก</a></p>
+      <p id="toggle-mode-text">มีบัญชีผู้ใช้แล้ว? <a href="login.html">เข้าสู่ระบบ</a></p>
       <p style="margin-top: 0.5rem;">ต้องการความช่วยเหลือ? <a href="https://line.me/ti/p/XH0ligWXx0" target="_blank">ติดต่อผู้ดูแลระบบ (LINE)</a></p>
     </div>
   </div>
 
-  <script src="login.js?v=1.1"></script>
+  <script src="register.js"></script>
 </body>
 </html>
