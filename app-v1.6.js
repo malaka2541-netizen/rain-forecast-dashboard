@@ -262,12 +262,20 @@ function clampProbability(probabilityPercent) {
   return Math.max(0, Math.min(1, parseFloat((numericValue / 100).toFixed(2))));
 }
 
-function getWeatherDetails(weatherCode, precipitationMm = 0, windGustKmh = 0, probability = null) {
+function getWeatherDetails(weatherCode, precipitationMm = 0, windGustKmh = 0, probability = null, hour = null) {
   const code = Number.isFinite(Number(weatherCode)) ? Number(weatherCode) : null;
   const rainMm = Number.isFinite(Number(precipitationMm)) ? Number(precipitationMm) : 0;
   const gustKmh = Number.isFinite(Number(windGustKmh)) ? Number(windGustKmh) : 0;
   const rainProbability = typeof probability === "number" ? Math.max(0, Math.min(1, probability)) : null;
   const lowProbability = rainProbability !== null && rainProbability < 0.4;
+  
+  let isNight = false;
+  if (hour) {
+    const hr = parseInt(hour.split(":")[0], 10);
+    if (!isNaN(hr)) {
+      isNight = hr >= 19 || hr <= 5;
+    }
+  }
 
   if ([95, 96, 99].includes(code)) {
     return {
@@ -316,9 +324,9 @@ function getWeatherDetails(weatherCode, precipitationMm = 0, windGustKmh = 0, pr
 
   if ([1, 2].includes(code)) {
     return {
-      iconClass: "fa-solid fa-cloud-sun",
+      iconClass: isNight ? "fa-solid fa-cloud-moon weather-icon-partly-cloudy-night" : "fa-solid fa-cloud-sun weather-icon-partly-cloudy",
       label: "เมฆบางส่วน",
-      severity: "partly-cloudy",
+      severity: "cloudy",
       isStorm: false
     };
   }
@@ -1121,7 +1129,7 @@ function normalizeTmdWarning(responseData) {
     severity: inferTmdAlertSeverity(label),
     source: "warning",
     tickerText,
-    url: getFirstReadableText(warning.WebUrlEnglish) || warning.WebUrlThai || "",
+    url: getFirstReadableText(warning.WebUrlEnglish) || warning.WebUrlThai || warning.DocumentFile || "https://www.tmd.go.th/warning-and-events/warning-storm",
     publishedAt: warning.AnnounceDate || warning.EffectStartDate || ""
   };
 }
@@ -2176,7 +2184,7 @@ function renderTable() {
       if (val === null || val === undefined) {
         cell.innerText = "-";
       } else {
-        const weather = getWeatherDetails(entry.weatherCode, entry.precipitation, entry.windGust, val);
+        const weather = getWeatherDetails(entry.weatherCode, entry.precipitation, entry.windGust, val, hour);
         const rainIntensity = getRainIntensity(entry.precipitation);
         const stormRisk = getStormRisk(entry.weatherCode, entry.windGust, val);
         const valueWrapper = document.createElement("span");
@@ -2384,7 +2392,7 @@ function renderChart() {
             label: function(context) {
               const hour = context.label;
               const entry = currentDayData.values[hour];
-              const weather = getWeatherDetails(entry.weatherCode, entry.precipitation, entry.windGust, entry.probability);
+              const weather = getWeatherDetails(entry.weatherCode, entry.precipitation, entry.windGust, entry.probability, hour);
               const rainIntensity = getRainIntensity(entry.precipitation);
               const stormRisk = getStormRisk(entry.weatherCode, entry.windGust, entry.probability);
               const stormLine = stormRisk.active ? [`สัญญาณพายุ: ${stormRisk.label}`] : [];

@@ -214,6 +214,12 @@
           </table>
         </div>
         
+        <div class="forecast-general-note" style="margin-top: 15px; padding: 15px; background: rgba(59, 130, 246, 0.05); border-left: 4px solid #3b82f6; border-radius: 4px; font-size: 0.85rem; color: #475569;">
+          <p style="margin-bottom: 8px;"><i class="fa-solid fa-lightbulb" style="color: #3b82f6;"></i> <strong>หมายเหตุ:</strong> ตัวเลขเปอร์เซ็นต์ (%) ในตารางคือ <strong>"โอกาสที่จะเกิดฝน"</strong> เท่านั้น ไม่ได้บ่งบอกถึง <strong>"ปริมาณความหนักเบาของฝน"</strong> <br>
+          <span style="color: #64748b; font-size: 0.8rem;">(ยกตัวอย่างเช่น: โอกาส 100% หมายความว่ามีโอกาสตกแน่นอน แต่อาจจะเป็นเพียงฝนตกละอองปรอยๆ ปริมาณแค่ 0.1 มม. ก็ได้)</span><br> 
+          หากต้องการประเมินความหนักเบา ให้ดูจากปริมาณฝนคาดการณ์</p>
+          <p style="margin-bottom: 0;"><i class="fa-solid fa-location-crosshairs" style="color: #3b82f6;"></i> <strong>พื้นที่ครอบคลุม:</strong> ข้อมูลพยากรณ์นี้อ้างอิงจากแบบจำลองสภาพอากาศ ซึ่งครอบคลุมพื้นที่ <strong>รัศมีประมาณ 3-5 กิโลเมตร</strong> รอบจุดที่ท่านปักหมุด</p>
+        </div>
         <div class="forecast-reliability-note">
           <h4><i class="fa-solid fa-circle-info"></i> <span data-i18n="reliability-title">ระดับความน่าเชื่อถือของข้อมูล</span></h4>
           <div class="reliability-levels">
@@ -300,7 +306,7 @@
           </li>
           <li>
             <strong>สีในตาราง</strong><br>
-            สีเขียว = โอกาสฝนน้อย, สีเหลือง = ปานกลาง, สีส้ม = สูง ใช้ดูแนวโน้มเสี่ยงแบบกวาดตาเร็ว
+            สีเขียว = โอกาสฝนน้อย, สีเหลือง = ปานกลาง, สีส้ม = สูง, สีแดง = สูงมาก
           </li>
           <li>
             <strong>สัญลักษณ์สภาพอากาศ</strong><br>
@@ -441,9 +447,9 @@
     </div>
   </div>
 
-  <link rel="stylesheet" href="style-v1.6.css?v=2.7" />
+  <link rel="stylesheet" href="style-v1.6.css?v=2.8" />
   <script src="i18n.js?v=1.8"></script>
   <script src="auth-guard.js?v=1.0"></script>
-  <script src="app-v1.6.js?v=2.7" defer></script>
+  <script src="app-v1.6.js?v=2.8" defer></script>
 </body>
 </html>
