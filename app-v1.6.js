@@ -318,7 +318,7 @@ function getWeatherDetails(weatherCode, precipitationMm = 0, windGustKmh = 0, pr
     return {
       iconClass: "fa-solid fa-cloud-sun",
       label: "เมฆบางส่วน",
-      severity: "cloudy",
+      severity: "partly-cloudy",
       isStorm: false
     };
   }
