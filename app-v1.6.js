@@ -1773,8 +1773,11 @@ document.addEventListener("DOMContentLoaded", () => {
       btnDownloadTable.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
       btnDownloadTable.disabled = true;
       
-      // We temporarily hide the download button so it doesn't appear in the screenshot
+      // We temporarily hide the download button and general note so they don't appear in the screenshot
       btnDownloadTable.style.display = 'none';
+      const generalNote = document.querySelector('.forecast-general-note');
+      const originalGeneralNoteDisplay = generalNote ? generalNote.style.display : '';
+      if (generalNote) generalNote.style.display = 'none';
       
       try {
         const tableCard = document.querySelector('.table-card');
@@ -1795,6 +1798,7 @@ document.addEventListener("DOMContentLoaded", () => {
         btnDownloadTable.style.display = 'flex';
         btnDownloadTable.innerHTML = originalHtml;
         btnDownloadTable.disabled = false;
+        if (generalNote) generalNote.style.display = originalGeneralNoteDisplay;
       }
     });
   }
