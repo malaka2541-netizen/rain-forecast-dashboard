@@ -1150,7 +1150,7 @@ function normalizeTmdDailySummary(responseData) {
     severity: inferTmdAlertSeverity(label),
     source: "daily-summary",
     tickerText: overviewThai,
-    url: "https://www.tmd.go.th/forecast/daily"
+    url: "https://www.tmd.go.th/warning-and-events/warning-storm"
   };
 }
 
