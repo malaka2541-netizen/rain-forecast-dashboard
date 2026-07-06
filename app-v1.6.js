@@ -1760,6 +1760,45 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // --- Download Table Logic ---
+  const btnDownloadTable = document.getElementById("btn-download-table");
+  if (btnDownloadTable) {
+    btnDownloadTable.addEventListener("click", async () => {
+      if (typeof html2canvas === 'undefined') {
+        alert("ระบบดาวน์โหลดภาพกำลังโหลด โปรดลองใหม่อีกครั้ง");
+        return;
+      }
+      
+      const originalHtml = btnDownloadTable.innerHTML;
+      btnDownloadTable.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
+      btnDownloadTable.disabled = true;
+      
+      // We temporarily hide the download button so it doesn't appear in the screenshot
+      btnDownloadTable.style.display = 'none';
+      
+      try {
+        const tableCard = document.querySelector('.table-card');
+        const canvas = await html2canvas(tableCard, {
+          scale: 2, // High resolution
+          backgroundColor: '#f8fafc',
+          useCORS: true
+        });
+        
+        const link = document.createElement('a');
+        link.download = `forecast-table-${new Date().toISOString().split('T')[0]}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      } catch (error) {
+        console.error("Error generating image:", error);
+        alert("เกิดข้อผิดพลาดในการบันทึกรูปภาพ");
+      } finally {
+        btnDownloadTable.style.display = 'flex';
+        btnDownloadTable.innerHTML = originalHtml;
+        btnDownloadTable.disabled = false;
+      }
+    });
+  }
+
   // Fetch real data on load automatically
   updateSourceToggleUI();
   updateTableIconToggleUI();
