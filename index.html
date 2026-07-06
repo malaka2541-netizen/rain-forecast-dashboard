@@ -41,7 +41,7 @@
           <i class="fa-solid fa-globe"></i>
           <span id="lang-indicator">TH</span>
         </button>
-        <button id="btn-open-accuracy" class="btn btn-secondary" type="button">
+        <button id="btn-open-accuracy" class="btn btn-secondary" type="button" style="display: none;">
           <i class="fa-solid fa-chart-simple"></i>
           <span data-i18n="btn-stats">สถิติความแม่น</span>
         </button>
@@ -113,8 +113,7 @@
             </div>
             <div class="radar-toggle" style="display: flex; gap: 0.5rem; font-size: 0.8rem; background: var(--bg-hover); padding: 0.25rem; border-radius: 20px;">
               <button id="btn-radar-windy" class="btn-radar-switch active" style="border: none; background: var(--primary); color: white; padding: 0.2rem 0.6rem; border-radius: 12px; cursor: pointer; font-weight: 600;" data-i18n="radar-source-windy">Windy</button>
-              <button id="btn-radar-tmd" class="btn-radar-switch" style="border: none; background: transparent; color: var(--text-main); padding: 0.2rem 0.6rem; border-radius: 12px; cursor: pointer; font-weight: 600;" data-i18n="radar-source-tmd">TMD Radar</button>
-              <button id="btn-radar-bma" class="btn-radar-switch" style="border: none; background: transparent; color: var(--text-main); padding: 0.2rem 0.6rem; border-radius: 12px; cursor: pointer; font-weight: 600;" data-i18n="radar-source-bma">BMA Radar</button>
+              <button id="btn-radar-bma" class="btn-radar-switch" style="border: none; background: transparent; color: var(--text-main); padding: 0.2rem 0.6rem; border-radius: 12px; cursor: pointer; font-weight: 600;" data-i18n="radar-source-tmd">เรดาร์ กรมอุตุฯ/กทม.</button>
             </div>
           </div>
           
@@ -123,17 +122,6 @@
             <div class="radar-overlay"></div>
           </div>
           
-          <div id="tmd-radar-container" class="hidden" style="width: 100%; height: calc(100% - 45px); background: #1a1a1a; display: flex; align-items: center; justify-content: center; position: relative;">
-            <div id="tmd-loading" style="position: absolute; color: white; font-size: 0.9rem;">Loading TMD Radar...</div>
-            <img id="tmd-radar-img" data-src="https://weather.tmd.go.th/skm/skm240LoopHQ.gif" src="" alt="TMD Radar Loop" style="width: 100%; height: 100%; object-fit: contain; position: relative; z-index: 2; opacity: 0; transition: opacity 0.3s ease;">
-            <div id="tmd-timestamp-overlay" class="hidden" style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.65); color: white; padding: 4px 10px; border-radius: 6px; z-index: 10; font-size: 0.75rem; font-weight: 500; backdrop-filter: blur(4px);">
-              <i class="fa-regular fa-clock"></i> <span data-i18n="tmd-radar-updated">อัปเดตล่าสุด:</span> <span id="tmd-timestamp-text">...</span>
-            </div>
-          </div>
-          
-          <div id="bma-radar-container" class="hidden" style="width: 100%; height: calc(100% - 45px); position: relative; background: #fff; overflow: hidden; display: flex; justify-content: center; align-items: center;">
-            <div id="bma-loading" style="position: absolute; color: #333; font-size: 0.9rem; z-index: 5;">Loading BMA Radar...</div>
-            <iframe id="bma-radar-iframe" data-src="https://satda.tmd.go.th/wp-content/uploads/nowcasting/bkk/bangkok.php" scrolling="no" style="width: 100%; height: 100%; border: none; z-index: 2; position: absolute; top: 0; left: 0;"></iframe>
           </div>
         </div>
 

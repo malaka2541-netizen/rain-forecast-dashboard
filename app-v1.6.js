@@ -64,13 +64,8 @@ const dayTabsContainer = document.getElementById("day-tabs");
 const forecastTableBody = document.getElementById("forecast-table-body");
 
 const btnRadarWindy = document.getElementById("btn-radar-windy");
-const btnRadarTmd = document.getElementById("btn-radar-tmd");
 const btnRadarBma = document.getElementById("btn-radar-bma");
 const windyRadarContainer = document.getElementById("windy-radar-container");
-const tmdRadarContainer = document.getElementById("tmd-radar-container");
-const tmdRadarImg = document.getElementById("tmd-radar-img");
-const bmaRadarContainer = document.getElementById("bma-radar-container");
-const bmaRadarIframe = document.getElementById("bma-radar-iframe");
 
 
 const loadingOverlay = document.getElementById("loading-overlay");
@@ -208,17 +203,15 @@ async function fetchTmdRadarTimestamp() {
 }
 
 function initRadarToggle() {
-  if (!btnRadarWindy || !btnRadarTmd || !btnRadarBma) return;
+  if (!btnRadarWindy || !btnRadarBma) return;
   
   function resetRadarButtons() {
-    [btnRadarWindy, btnRadarTmd, btnRadarBma].forEach(btn => {
+    [btnRadarWindy, btnRadarBma].forEach(btn => {
       btn.classList.remove("active", "btn-primary");
       btn.style.background = "transparent";
       btn.style.color = "var(--text-main)";
     });
     windyRadarContainer.classList.add("hidden");
-    tmdRadarContainer.classList.add("hidden");
-    bmaRadarContainer.classList.add("hidden");
   }
 
   function setActiveRadar(btn, container) {
@@ -231,22 +224,6 @@ function initRadarToggle() {
   
   btnRadarWindy.addEventListener("click", () => {
     setActiveRadar(btnRadarWindy, windyRadarContainer);
-  });
-
-  btnRadarTmd.addEventListener("click", () => {
-    setActiveRadar(btnRadarTmd, tmdRadarContainer);
-    
-    // Lazy load the TMD radar image to save bandwidth
-    if (tmdRadarImg && !tmdRadarImg.getAttribute("src")) {
-      tmdRadarImg.setAttribute("src", tmdRadarImg.getAttribute("data-src"));
-      tmdRadarImg.onload = () => {
-        tmdRadarImg.style.opacity = "1";
-        const loadingText = document.getElementById("tmd-loading");
-        if (loadingText) loadingText.style.display = "none";
-      };
-      // Fetch timestamp for the first time
-      fetchTmdRadarTimestamp();
-    }
   });
 
   btnRadarBma.addEventListener("click", () => {
