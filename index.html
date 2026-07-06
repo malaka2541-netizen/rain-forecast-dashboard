@@ -62,14 +62,16 @@
           <strong id="active-source-title">Open-Meteo 10 วัน</strong>
           <span id="active-source-caption" data-i18n="source-caption">ใช้เป็นข้อมูลหลักสำหรับมุมมองรายชั่วโมงและรายวัน</span>
         </div>
-        <div class="forecast-source-switch" role="tablist" aria-label="เลือกชุดข้อมูลพยากรณ์">
-          <button id="btn-source-openmeteo" class="source-switch-btn active" type="button" aria-pressed="true">Open-Meteo 10 วัน</button>
-          <button id="btn-source-openweather" class="source-switch-btn" type="button" aria-pressed="false">OpenWeather 48 ชม.</button>
-          <button id="btn-source-googleweather" class="source-switch-btn" type="button" aria-pressed="false">Google Weather 240 ชม.</button>
+        <div class="forecast-toolbar-group" style="display: flex; gap: 1rem; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+          <div class="forecast-source-switch" role="tablist" aria-label="เลือกชุดข้อมูลพยากรณ์">
+            <button id="btn-source-openmeteo" class="source-switch-btn active" type="button" aria-pressed="true">Open-Meteo 10 วัน</button>
+            <button id="btn-source-openweather" class="source-switch-btn" type="button" aria-pressed="false" style="display: none;">OpenWeather 48 ชม.</button>
+            <button id="btn-source-googleweather" class="source-switch-btn" type="button" aria-pressed="false">Google Weather 240 ชม.</button>
+          </div>
+          <div class="forecast-display-toolbar" style="margin: 0;">
+            <button id="btn-toggle-table-icons" class="table-visibility-btn" type="button" aria-pressed="true">&#3626;&#3633;&#3597;&#3621;&#3633;&#3585;&#3625;&#3603;&#3660;: &#3648;&#3611;&#3636;&#3604;</button>
+          </div>
         </div>
-      </div>
-      <div class="forecast-display-toolbar">
-        <button id="btn-toggle-table-icons" class="table-visibility-btn" type="button" aria-pressed="true">&#3626;&#3633;&#3597;&#3621;&#3633;&#3585;&#3625;&#3603;&#3660;: &#3648;&#3611;&#3636;&#3604;</button>
       </div>
       <div class="top-row-grid">
         <!-- การ์ดรวม: สถานที่ + ช่วงฝนสูงสุด -->
