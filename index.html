@@ -213,32 +213,30 @@
             <tbody id="forecast-table-body"></tbody>
           </table>
         </div>
-        </div>
         
-        <div class="forecast-notes-container">
-          <div class="forecast-general-note" style="padding: 15px; background: rgba(59, 130, 246, 0.05); border-left: 4px solid #3b82f6; border-radius: 4px; font-size: 0.85rem; color: #475569;">
-            <p style="margin-bottom: 8px;"><i class="fa-solid fa-lightbulb" style="color: #3b82f6;"></i> <strong>หมายเหตุ:</strong> ตัวเลขเปอร์เซ็นต์ (%) ในตารางคือ <strong>"โอกาสที่จะเกิดฝน"</strong> เท่านั้น ไม่ได้บ่งบอกถึง <strong>"ปริมาณความหนักเบาของฝน"</strong> <br>
-            <span style="color: #64748b; font-size: 0.8rem;">(ยกตัวอย่างเช่น: โอกาส 100% หมายความว่ามีโอกาสตกแน่นอน แต่อาจจะเป็นเพียงฝนตกละอองปรอยๆ ปริมาณแค่ 0.1 มม. ก็ได้)</span><br> 
-            หากต้องการประเมินความหนักเบา ให้ดูจากปริมาณฝนคาดการณ์</p>
-            <p style="margin-bottom: 0;"><i class="fa-solid fa-location-crosshairs" style="color: #3b82f6;"></i> <strong>พื้นที่ครอบคลุม:</strong> ข้อมูลพยากรณ์นี้อ้างอิงจากแบบจำลองสภาพอากาศ ซึ่งครอบคลุมพื้นที่ <strong>รัศมีประมาณ 3-5 กิโลเมตร</strong> รอบจุดที่ท่านปักหมุด</p>
-          </div>
-          <div class="forecast-reliability-note">
-            <h4><i class="fa-solid fa-circle-info"></i> <span data-i18n="reliability-title">ระดับความน่าเชื่อถือของข้อมูล</span></h4>
-            <div class="reliability-levels">
-              <div class="r-level high">
-                <span class="r-badge"><i class="fa-solid fa-circle-check" style="color: #4ade80;"></i> 1-2 วัน</span>
-                <p data-i18n="rel-high-desc">ความน่าเชื่อถือ <strong>สูง</strong>: ข้อมูลค่อนข้างนิ่ง สามารถใช้ตัดสินใจและเตรียมการได้</p>
-              </div>
-              <div class="r-level medium">
-                <span class="r-badge"><i class="fa-solid fa-circle-exclamation" style="color: #fbbf24;"></i> 3-5 วัน</span>
-                <p data-i18n="rel-med-desc">ความน่าเชื่อถือ <strong>ปานกลาง</strong>: ใช้ดู <strong>"แนวโน้ม"</strong> เพื่อวางแผนงานคร่าวๆ ล่วงหน้า</p>
-              </div>
-              <div class="r-level low">
-                <span class="r-badge"><i class="fa-solid fa-triangle-exclamation" style="color: #f97316;"></i> 6-10 วัน</span>
-                <p data-i18n="rel-low-desc">ความน่าเชื่อถือ <strong>ต่ำ</strong>: เป็นเพียงการคาดเดาระยะยาว ข้อมูลพลิกผันได้เสมอ <strong>ไม่ควรใช้ตัดสินใจเรื่องสำคัญ</strong></p>
-              </div>
+        <div class="forecast-reliability-note">
+          <h4><i class="fa-solid fa-circle-info"></i> <span data-i18n="reliability-title">ระดับความน่าเชื่อถือของข้อมูล</span></h4>
+          <div class="reliability-levels">
+            <div class="r-level high">
+              <span class="r-badge"><i class="fa-solid fa-circle-check" style="color: #4ade80;"></i> 1-2 วัน</span>
+              <p data-i18n="rel-high-desc">ความน่าเชื่อถือ <strong>สูง</strong>: ข้อมูลค่อนข้างนิ่ง สามารถใช้ตัดสินใจและเตรียมการได้</p>
+            </div>
+            <div class="r-level medium">
+              <span class="r-badge"><i class="fa-solid fa-circle-exclamation" style="color: #fbbf24;"></i> 3-5 วัน</span>
+              <p data-i18n="rel-med-desc">ความน่าเชื่อถือ <strong>ปานกลาง</strong>: ใช้ดู <strong>"แนวโน้ม"</strong> เพื่อวางแผนงานคร่าวๆ ล่วงหน้า</p>
+            </div>
+            <div class="r-level low">
+              <span class="r-badge"><i class="fa-solid fa-triangle-exclamation" style="color: #f97316;"></i> 6-10 วัน</span>
+              <p data-i18n="rel-low-desc">ความน่าเชื่อถือ <strong>ต่ำ</strong>: เป็นเพียงการคาดเดาระยะยาว ข้อมูลพลิกผันได้เสมอ <strong>ไม่ควรใช้ตัดสินใจเรื่องสำคัญ</strong></p>
             </div>
           </div>
+        </div>
+        
+        <div class="forecast-general-note" style="padding: 15px; background: rgba(59, 130, 246, 0.05); border-left: 4px solid #3b82f6; border-radius: 4px; font-size: 0.85rem; color: #475569; margin-top: 1.5rem;">
+          <p style="margin-bottom: 8px;"><i class="fa-solid fa-lightbulb" style="color: #3b82f6;"></i> <strong>หมายเหตุ:</strong> ตัวเลขเปอร์เซ็นต์ (%) ในตารางคือ <strong>"โอกาสที่จะเกิดฝน"</strong> เท่านั้น ไม่ได้บ่งบอกถึง <strong>"ปริมาณความหนักเบาของฝน"</strong> <br>
+          <span style="color: #64748b; font-size: 0.8rem;">(ยกตัวอย่างเช่น: โอกาส 100% หมายความว่ามีโอกาสตกแน่นอน แต่อาจจะเป็นเพียงฝนตกละอองปรอยๆ ปริมาณแค่ 0.1 มม. ก็ได้)</span><br> 
+          หากต้องการประเมินความหนักเบา ให้ดูจากปริมาณฝนคาดการณ์</p>
+          <p style="margin-bottom: 0;"><i class="fa-solid fa-location-crosshairs" style="color: #3b82f6;"></i> <strong>พื้นที่ครอบคลุม:</strong> ข้อมูลพยากรณ์นี้อ้างอิงจากแบบจำลองสภาพอากาศ ซึ่งครอบคลุมพื้นที่ <strong>รัศมีประมาณ 3-5 กิโลเมตร</strong> รอบจุดที่ท่านปักหมุด</p>
         </div>
       </div>
     </main>

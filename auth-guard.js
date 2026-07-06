@@ -23,7 +23,7 @@
     }
 
     // 4. Set up Logout button
-    document.addEventListener('DOMContentLoaded', () => {
+    const setupLogoutBtn = () => {
       const logoutBtn = document.getElementById('btn-logout');
       if (logoutBtn) {
         logoutBtn.style.display = 'inline-flex';
@@ -34,7 +34,13 @@
           window.location.replace('/login.html');
         });
       }
-    });
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', setupLogoutBtn);
+    } else {
+      setupLogoutBtn();
+    }
 
   } catch (err) {
     console.error('Auth Guard Error:', err);
