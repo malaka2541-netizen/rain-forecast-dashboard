@@ -2192,24 +2192,6 @@ function renderTable() {
           cell.appendChild(iconWrapper);
         }
         
-        // Add agreement badge
-        const supportsAgreement = sourceComparisonState.activeSource === "openmeteo" || sourceComparisonState.activeSource === "openweather";
-        if (showTableWeatherIcons && supportsAgreement) {
-          const owDay = (sourceComparisonState.activeSource === "openweather" ? sourceComparisonState.openMeteoData : sourceComparisonState.openWeatherData)
-            ? (sourceComparisonState.activeSource === "openweather" ? sourceComparisonState.openMeteoData : sourceComparisonState.openWeatherData).find(d => d.date === day.date)
-            : null;
-          const owEntry = owDay ? owDay.values[hour] : null;
-          const agreement = sourceComparisonState.activeSource === "openweather"
-            ? getAgreementLevel(owEntry, entry)
-            : getAgreementLevel(entry, owEntry);
-          
-          if (agreement !== "unknown") {
-            const badge = document.createElement("div");
-            badge.className = `agreement-badge badge-${agreement}`;
-            badge.title = agreement === "agree" ? "ข้อมูลพยากรณ์สอดคล้องกัน" : "ข้อมูลพยากรณ์ให้แนวโน้มต่างกัน";
-            cell.appendChild(badge);
-          }
-        }
 
         cell.setAttribute("aria-label", `${hour} ${weather.label} ${rainIntensity.label}`);
         cell.addEventListener("mouseenter", (event) => {
