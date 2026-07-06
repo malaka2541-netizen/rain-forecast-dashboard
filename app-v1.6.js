@@ -1129,7 +1129,8 @@ function normalizeTmdWarning(responseData) {
     severity: inferTmdAlertSeverity(label),
     source: "warning",
     tickerText,
-    url: getFirstReadableText(warning.WebUrlEnglish) || warning.WebUrlThai || warning.DocumentFile || "https://www.tmd.go.th/warning-and-events/warning-storm",
+    url: getFirstReadableText(warning.WebUrlEnglish) || warning.WebUrlThai || "https://www.tmd.go.th/warning-and-events/warning-storm",
+    pdf: warning.DocumentFile || "",
     publishedAt: warning.AnnounceDate || warning.EffectStartDate || ""
   };
 }
@@ -2174,6 +2175,8 @@ function updateKpiAnalytics() {
   updateAlertMarquee(alertCard);
 
   const alertLinkBtn = document.getElementById("kpi-alert-link");
+  const alertPdfBtn = document.getElementById("kpi-alert-pdf");
+  
   if (alertLinkBtn) {
     if (alertCard.url) {
       alertLinkBtn.href = alertCard.url;
@@ -2181,6 +2184,16 @@ function updateKpiAnalytics() {
     } else {
       alertLinkBtn.href = "#";
       alertLinkBtn.classList.add("hidden");
+    }
+  }
+
+  if (alertPdfBtn) {
+    if (alertCard.pdf) {
+      alertPdfBtn.href = alertCard.pdf;
+      alertPdfBtn.classList.remove("hidden");
+    } else {
+      alertPdfBtn.href = "#";
+      alertPdfBtn.classList.add("hidden");
     }
   }
 

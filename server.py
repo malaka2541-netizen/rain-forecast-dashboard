@@ -2375,9 +2375,36 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
                             url_path = match.group(1)
                             title = html_parser.unescape(match.group(2).strip())
                             
-                            desc_pattern = r'<div class="link-list-description">\s*<a[^>]*>(.*?)</a>'
-                            desc_match = re.search(desc_pattern, html_content[match.end():match.end()+2000])
-                            description = html_parser.unescape(desc_match.group(1).strip()) if desc_match else ""
+                            import urllib.parse
+                            inner_url = f"https://www.tmd.go.th{urllib.parse.quote(html_parser.unescape(url_path))}"
+                            
+                            pdf_url = ""
+                            full_description = ""
+                            try:
+                                inner_req = urllib.request.Request(inner_url, headers={'User-Agent': 'Mozilla/5.0'})
+                                with urllib.request.urlopen(inner_req, context=ctx, timeout=10) as inner_res:
+                                    inner_html = inner_res.read().decode('utf-8')
+                                    
+                                    pdf_pattern = r'<button[^>]*onclick="window\.open\(\'([^\']+)\'\)"[^>]*>.*?fa-file-pdf'
+                                    pdf_match = re.search(pdf_pattern, inner_html, re.IGNORECASE)
+                                    if pdf_match:
+                                        pdf_url = pdf_match.group(1)
+                                        if not pdf_url.startswith("http"):
+                                            pdf_url = f"https://www.tmd.go.th{pdf_url}"
+                                            
+                                    content_pattern = r'<div class="ps-3">(.*?)</div>\s*</section>'
+                                    content_match = re.search(content_pattern, inner_html, re.DOTALL | re.IGNORECASE)
+                                    if content_match:
+                                        raw_text = re.sub(r'<[^>]+>', ' ', content_match.group(1))
+                                        raw_text = html_parser.unescape(raw_text)
+                                        full_description = re.sub(r'\s+', ' ', raw_text).strip()
+                            except Exception as inner_e:
+                                print(f"Scraping inner warning failed: {inner_e}")
+                            
+                            if not full_description:
+                                desc_pattern = r'<div class="link-list-description">\s*<a[^>]*>(.*?)</a>'
+                                desc_match = re.search(desc_pattern, html_content[match.end():match.end()+2000])
+                                full_description = html_parser.unescape(desc_match.group(1).strip()) if desc_match else ""
                             
                             date_pattern = r'วันที่ข้อมูล: (.*?) \|'
                             date_match = re.search(date_pattern, html_content[match.end():match.end()+2000])
@@ -2387,9 +2414,10 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
                                 "Warning": {
                                     "TitleThai": title,
                                     "HeadlineThai": title,
-                                    "DescriptionThai": description,
+                                    "DescriptionThai": full_description,
                                     "AnnounceDate": date_str,
-                                    "WebUrlThai": f"https://www.tmd.go.th{url_path}",
+                                    "WebUrlThai": inner_url,
+                                    "DocumentFile": pdf_url,
                                     "TitleEnglish": "",
                                     "HeadlineEnglish": "",
                                     "DescriptionEnglish": "",
