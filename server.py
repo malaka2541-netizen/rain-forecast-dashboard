@@ -979,6 +979,24 @@ def build_openweather_hour_rows(run_id: int, payload: dict[str, Any]) -> list[di
         prob = pop * 100 if pop is not None else None
 
         rain_obj = item.get("rain") or {}
+    hourly = payload.get("hourly") or []
+    issued_at = parse_iso_datetime(utc_now_iso())
+    rows = []
+
+    for item in hourly:
+        dt_timestamp = item.get("dt")
+        if not dt_timestamp:
+            continue
+        
+        forecast_dt = datetime.fromtimestamp(dt_timestamp, timezone.utc)
+        lead_hours = None
+        if issued_at:
+            lead_hours = round((forecast_dt - issued_at).total_seconds() / 3600, 2)
+
+        pop = item.get("pop", 0)
+        prob = pop * 100 if pop is not None else None
+
+        rain_obj = item.get("rain") or {}
         rain_mm = rain_obj.get("1h")
 
         weather_arr = item.get("weather") or []
@@ -997,6 +1015,58 @@ def build_openweather_hour_rows(run_id: int, payload: dict[str, Any]) -> list[di
                 "cape": None,
                 "dewpoint_2m": item.get("dew_point"),
                 "surface_pressure": item.get("pressure"),
+            }
+        )
+
+    return rows
+
+
+def build_googleweather_run_record(lat: str, lon: str, payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "source": "googleweather",
+        "requested_lat": float(lat),
+        "requested_lon": float(lon),
+        "requested_at": utc_now_iso(),
+        "timezone": googleweather_timezone_name(payload),
+        "generation_time_ms": None,
+        "utc_offset_seconds": None,
+        "raw_payload": payload,
+    }
+
+
+def build_googleweather_hour_rows(run_id: int, payload: dict[str, Any]) -> list[dict[str, Any]]:
+    issued_at = parse_iso_datetime(utc_now_iso())
+    rows = []
+
+    for raw_item in googleweather_hour_items(payload):
+        norm = normalize_googleweather_item(raw_item)
+        if not norm:
+            continue
+        
+        forecast_dt = datetime.fromtimestamp(norm["dt"], timezone.utc)
+        lead_hours = None
+        if issued_at:
+            lead_hours = round((forecast_dt - issued_at).total_seconds() / 3600, 2)
+            
+        prob = norm["pop"] * 100 if norm.get("pop") is not None else None
+        rain_mm = norm.get("rain", {}).get("1h", 0.0)
+        
+        weather_arr = norm.get("weather") or []
+        weather_id = weather_arr[0].get("id") if weather_arr else None
+
+        rows.append(
+            {
+                "run_id": run_id,
+                "forecast_time": forecast_dt.isoformat(),
+                "lead_hours": lead_hours,
+                "precipitation_probability": prob,
+                "precipitation_mm": rain_mm,
+                "weather_code": weather_id,
+                "wind_speed_10m": norm.get("wind_speed"),
+                "wind_gusts_10m": norm.get("wind_gust"),
+                "cape": None,
+                "dewpoint_2m": norm.get("dew_point"),
+                "surface_pressure": norm.get("pressure"),
             }
         )
 
@@ -1044,6 +1114,68 @@ def pick_closest_forecast_run(
             best_distance = distance
 
     return (best_run or runs[0]), best_distance
+
+
+def fetch_historical_openweather_from_supabase(lat: str, lon: str, hours_back: int = 24) -> list[dict[str, Any]]:
+    if not is_supabase_logging_enabled():
+        return []
+    try:
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours_back)).isoformat()
+        current_time = datetime.now(timezone.utc).isoformat()
+        
+        path = (
+            f"/rest/v1/forecast_hourly_points"
+            f"?select=forecast_time,precipitation_probability,precipitation_mm,weather_code,wind_speed_10m,wind_gusts_10m,dewpoint_2m,surface_pressure,forecast_runs!inner(source,requested_lat)"
+            f"&forecast_runs.source=eq.openweather"
+            f"&forecast_time=gte.{cutoff}"
+            f"&forecast_time=lt.{current_time}"
+            f"&order=forecast_time.asc,run_id.desc"
+        )
+        rows = supabase_get(path, timeout=10) or []
+        
+        seen_times = set()
+        deduped = []
+        for row in rows:
+            ft = row["forecast_time"]
+            if ft not in seen_times:
+                seen_times.add(ft)
+                deduped.append(row)
+        
+        return deduped
+    except Exception as error:
+        log_event(f"Failed to fetch historical openweather from supabase: {error}")
+        return []
+
+
+def fetch_historical_googleweather_from_supabase(lat: str, lon: str, hours_back: int = 24) -> list[dict[str, Any]]:
+    if not is_supabase_logging_enabled():
+        return []
+    try:
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours_back)).isoformat()
+        current_time = datetime.now(timezone.utc).isoformat()
+        
+        path = (
+            f"/rest/v1/forecast_hourly_points"
+            f"?select=forecast_time,precipitation_probability,precipitation_mm,weather_code,wind_speed_10m,wind_gusts_10m,dewpoint_2m,surface_pressure,forecast_runs!inner(source,requested_lat)"
+            f"&forecast_runs.source=eq.googleweather"
+            f"&forecast_time=gte.{cutoff}"
+            f"&forecast_time=lt.{current_time}"
+            f"&order=forecast_time.asc,run_id.desc"
+        )
+        rows = supabase_get(path, timeout=10) or []
+        
+        seen_times = set()
+        deduped = []
+        for row in rows:
+            ft = row["forecast_time"]
+            if ft not in seen_times:
+                seen_times.add(ft)
+                deduped.append(row)
+        
+        return deduped
+    except Exception as error:
+        log_event(f"Failed to fetch historical googleweather from supabase: {error}")
+        return []
 
 
 def fetch_latest_openmeteo_payload_from_supabase(
@@ -1448,6 +1580,10 @@ def run_backtest_cycle(
         "openweather",
         lambda: collect_openweather_forecast_snapshot(lat, lon),
     )
+    googleweather_result = execute_backtest_step(
+        "googleweather",
+        lambda: collect_googleweather_forecast_snapshot(lat, lon),
+    )
     observation_result = execute_backtest_step(
         "observations",
         lambda: collect_tmd_aws_observations(provinces),
@@ -1461,8 +1597,9 @@ def run_backtest_cycle(
         summarize_backtest_results,
     )
     step_results = {
-        "forecast_openmeteo": openmeteo_result,
-        "forecast_openweather": openweather_result,
+        "openmeteo": openmeteo_result,
+        "openweather": openweather_result,
+        "googleweather": googleweather_result,
         "observations": observation_result,
         "verification": verification_result,
         "summary": summary_result,
@@ -1480,6 +1617,7 @@ def run_backtest_cycle(
         "cycle": {
             "forecast_openmeteo": openmeteo_result,
             "forecast_openweather": openweather_result,
+            "forecast_googleweather": googleweather_result,
             "observations": observation_result,
             "verification": verification_result,
             "summary": summary_result.get("summary", {}),
@@ -1796,7 +1934,7 @@ def log_openmeteo_snapshot(lat: str, lon: str, payload: dict[str, Any]) -> None:
         log_event(f"Supabase logging failed: {type(error).__name__}: {error}")
 
 
-def log_openweather_snapshot(lat: str, lon: str, payload: dict[str, Any]) -> None:
+def log_openweather_to_supabase(lat: str, lon: str, payload: dict[str, Any]) -> None:
     if not is_supabase_logging_enabled():
         return
 
@@ -1828,37 +1966,56 @@ def log_openweather_snapshot(lat: str, lon: str, payload: dict[str, Any]) -> Non
             f"with {len(hour_rows)} hourly rows."
         )
     except Exception as error:
-        log_event(f"Supabase logging failed: {type(error).__name__}: {error}")
+        log_event(f"Supabase logging failed (openweather): {type(error).__name__}: {error}")
 
 
-def collect_openweather_forecast_snapshot(lat: str | None = None, lon: str | None = None) -> dict[str, Any]:
-    target_lat = str(lat or get_backtest_target_lat_lon()[0])
-    target_lon = str(lon or get_backtest_target_lat_lon()[1])
-    openweather_url = build_openweather_url(target_lat, target_lon)
-    if not openweather_url:
-        return {"success": False, "source": "openweather", "error": "OPENWEATHER_API_KEY is missing"}
-    
-    log_event(
-        "Collecting OpenWeather snapshot for backtest: "
-        f"{redact_query_params(openweather_url, ('appid',))}"
-    )
+def log_googleweather_to_supabase(lat: str, lon: str, payload: dict[str, Any]) -> None:
+    if not is_supabase_logging_enabled():
+        return
+
     try:
-        payload = fetch_openweather_payload(target_lat, target_lon, timeout=20)
-        log_openweather_snapshot(target_lat, target_lon, payload)
+        hourly_count = len(googleweather_hour_items(payload))
+        log_event(
+            f"Supabase logging start: source=googleweather, lat={lat}, lon={lon}, "
+            f"hourly_points={hourly_count}"
+        )
+        run_rows = supabase_request(
+            "/rest/v1/forecast_runs",
+            build_googleweather_run_record(lat, lon, payload),
+            prefer="return=representation",
+        )
+        if not run_rows:
+            return
 
-        hourly_count = len(payload.get("hourly") or [])
-        return {
-            "success": True,
-            "source": "openweather",
-            "lat": float(target_lat),
-            "lon": float(target_lon),
-            "hourly_points": hourly_count,
-            "timezone": payload.get("timezone"),
-            "generated_at": utc_now_iso(),
-        }
-    except Exception as e:
-        log_event(f"OpenWeather collect error: {e}")
-        return {"success": False, "source": "openweather", "error": str(e)}
+        run_id = run_rows[0]["id"]
+        hour_rows = build_googleweather_hour_rows(run_id, payload)
+        if hour_rows:
+            supabase_request(
+                "/rest/v1/forecast_hourly_points",
+                hour_rows,
+                prefer="return=minimal",
+                timeout=15,
+            )
+        log_event(
+            f"Supabase logging completed for GoogleWeather run {run_id} "
+            f"with {len(hour_rows)} hourly rows."
+        )
+    except Exception as error:
+        log_event(f"Supabase logging failed (googleweather): {type(error).__name__}: {error}")
+
+
+def collect_openweather_forecast_snapshot(lat: str, lon: str) -> dict[str, Any]:
+    log_event(f"Collecting OpenWeather forecast snapshot for lat={lat}, lon={lon}")
+    payload = fetch_openweather_payload(lat, lon, timeout=20)
+    log_openweather_to_supabase(lat, lon, payload)
+    return payload
+
+
+def collect_googleweather_forecast_snapshot(lat: str, lon: str) -> dict[str, Any]:
+    log_event(f"Collecting GoogleWeather forecast snapshot for lat={lat}, lon={lon}")
+    payload = fetch_googleweather_payload(lat, lon, timeout=20, max_records=240)
+    log_googleweather_to_supabase(lat, lon, payload)
+    return payload
 
 
 class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
@@ -2040,8 +2197,34 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
         )
         try:
             payload = fetch_openweather_payload(lat, lon, timeout=20)
+            
+            # Fetch and prepend historical data from Supabase
+            historical = fetch_historical_openweather_from_supabase(lat, lon, hours_back=24)
+            if historical:
+                historical_hourly = []
+                for row in historical:
+                    try:
+                        dt = parse_iso_datetime(row["forecast_time"]).timestamp()
+                        prob = row.get("precipitation_probability")
+                        historical_hourly.append({
+                            "dt": int(dt),
+                            "pop": prob / 100.0 if prob is not None else 0.0,
+                            "rain": {"1h": row.get("precipitation_mm") or 0.0},
+                            "weather": [{"id": row.get("weather_code")}],
+                            "wind_speed": row.get("wind_speed_10m"),
+                            "wind_gust": row.get("wind_gusts_10m"),
+                            "dew_point": row.get("dewpoint_2m"),
+                            "pressure": row.get("surface_pressure"),
+                            "is_historical": True
+                        })
+                    except Exception as he:
+                        log_event(f"Error parsing historical row: {he}")
+                
+                if historical_hourly:
+                    payload["hourly"] = historical_hourly + payload.get("hourly", [])
+                    
             self.respond_json(payload)
-            log_openweather_snapshot(lat, lon, payload)
+            log_openweather_to_supabase(lat, lon, payload)
             log_event("OpenWeather request completed successfully.")
         except urllib.error.HTTPError as error:
             error_body = error.read().decode("utf-8")
@@ -2069,7 +2252,34 @@ class ForecastProxyHandler(http.server.SimpleHTTPRequestHandler):
         )
         try:
             payload = fetch_googleweather_payload(lat, lon, timeout=20)
+            
+            # Fetch and prepend historical data from Supabase
+            historical = fetch_historical_googleweather_from_supabase(lat, lon, hours_back=24)
+            if historical:
+                historical_hourly = []
+                for row in historical:
+                    try:
+                        dt = parse_iso_datetime(row["forecast_time"]).timestamp()
+                        prob = row.get("precipitation_probability")
+                        historical_hourly.append({
+                            "dt": int(dt),
+                            "pop": prob / 100.0 if prob is not None else 0.0,
+                            "rain": {"1h": row.get("precipitation_mm") or 0.0},
+                            "weather": [{"id": row.get("weather_code")}],
+                            "wind_speed": row.get("wind_speed_10m"),
+                            "wind_gust": row.get("wind_gusts_10m"),
+                            "dew_point": row.get("dewpoint_2m"),
+                            "pressure": row.get("surface_pressure"),
+                            "is_historical": True
+                        })
+                    except Exception as he:
+                        log_event(f"Error parsing historical row: {he}")
+                
+                if historical_hourly:
+                    payload["hourly"] = historical_hourly + payload.get("hourly", [])
+            
             self.respond_json(payload)
+            log_googleweather_to_supabase(lat, lon, payload)
             log_event("Google Weather request completed successfully.")
         except urllib.error.HTTPError as error:
             error_body = error.read().decode("utf-8")
