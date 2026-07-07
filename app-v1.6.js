@@ -36,6 +36,7 @@ let sourceComparisonState = {
 
 // DOM Elements
 const displayLocation = document.getElementById("display-location");
+const tableLocationDisplay = document.getElementById("table-location-display");
 const displayDateRange = document.getElementById("display-date-range");
 const forecastAvgPercent = document.getElementById("forecast-avg-percent");
 const forecastCurrentLabel = document.getElementById("forecast-current-label");
@@ -2674,6 +2675,10 @@ async function fetchDashboardData() {
       ? openMeteoResult.value.statusText
       : "Open-Meteo unavailable in this cycle";
     displayLocation.innerText = currentLocName;
+    if (tableLocationDisplay) {
+      const locText = tableLocationDisplay.querySelector('.loc-text');
+      if (locText) locText.innerText = currentLocName;
+    }
     if (openMeteoAvailable) {
       console.log("Weather data loaded from Open-Meteo successfully.");
     } else if (openMeteoResult.status !== "fulfilled") {
