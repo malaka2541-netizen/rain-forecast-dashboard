@@ -64,20 +64,7 @@
       </div>
     </header>
 
-    <main class="dashboard-grid-full">
-      <div class="forecast-source-toolbar" style="justify-content: flex-end;">
-        <div class="forecast-toolbar-group">
-          <div class="forecast-source-switch" role="tablist" aria-label="เลือกชุดข้อมูลพยากรณ์">
-            <button id="btn-source-openmeteo" class="source-switch-btn active" type="button" aria-pressed="true" style="position: relative;">
-              Open-Meteo 10 วัน
-              <span class="recommended-badge">Recommended</span>
-            </button>
-            <button id="btn-source-openweather" class="source-switch-btn" type="button" aria-pressed="false" style="display: none;">OpenWeather 48 ชม.</button>
-            <button id="btn-source-googleweather" class="source-switch-btn" type="button" aria-pressed="false">Google Weather 240 ชม.</button>
-          </div>
-        </div>
-      </div>
-      <div class="top-row-grid">
+
         <!-- การ์ดรวม: สถานที่ + ช่วงฝนสูงสุด -->
         <div id="location-card" class="combined-weather-card glass-card clickable-card" title="คลิกเพื่อตั้งค่าสถานที่">
           <div class="weather-art">
@@ -158,7 +145,17 @@
 
       <div class="chart-card glass-card">
         <div class="chart-header">
-          <h2><i class="fa-solid fa-chart-line"></i> <span data-i18n="chart-title">แนวโน้มพยากรณ์รายชั่วโมง</span></h2>
+          <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
+            <h2><i class="fa-solid fa-chart-line"></i> <span data-i18n="chart-title">แนวโน้มพยากรณ์รายชั่วโมง</span></h2>
+            <div class="forecast-source-switch" role="tablist" aria-label="เลือกชุดข้อมูลพยากรณ์" style="transform: scale(0.95); transform-origin: left center; margin: 0;">
+              <button id="btn-source-openmeteo" class="source-switch-btn active" type="button" aria-pressed="true" style="position: relative;">
+                Open-Meteo 10 วัน
+                <span class="recommended-badge">Recommended</span>
+              </button>
+              <button id="btn-source-openweather" class="source-switch-btn" type="button" aria-pressed="false" style="display: none;">OpenWeather 48 ชม.</button>
+              <button id="btn-source-googleweather" class="source-switch-btn" type="button" aria-pressed="false">Google Weather 240 ชม.</button>
+            </div>
+          </div>
           <div id="day-tabs" class="day-tabs"></div>
         </div>
         <div class="chart-wrapper">
@@ -176,7 +173,6 @@
               <span class="legend-badge badge-high"><i class="fa-solid fa-circle"></i> <span data-i18n="legend-high">สูง (71-90%)</span></span>
               <span class="legend-badge badge-very-high"><i class="fa-solid fa-circle"></i> <span data-i18n="legend-very-high">สูงมาก (91-100%)</span></span>
             </div>
-            <button id="btn-toggle-table-icons" class="table-visibility-btn" type="button" aria-pressed="true" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 6px;">&#3626;&#3633;&#3597;&#3621;&#3633;&#3585;&#3625;&#3603;&#3660;: &#3648;&#3611;&#3636;&#3604;</button>
             <button id="btn-download-table" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem; border: 1px solid #cbd5e1; background: white; border-radius: 6px; cursor: pointer; color: #475569;">
               <i class="fa-solid fa-download"></i> Download
             </button>
