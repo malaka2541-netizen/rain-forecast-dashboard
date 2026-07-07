@@ -1793,6 +1793,8 @@ document.addEventListener("DOMContentLoaded", () => {
         appContainerMaxWidth: appContainer ? appContainer.style.maxWidth : '',
         appContainerWidth: appContainer ? appContainer.style.width : '',
         dashboardGridWidth: dashboardGrid ? dashboardGrid.style.width : '',
+        forecastTableWidth: forecastTable ? forecastTable.style.width : '',
+        forecastTableMinWidth: forecastTable ? forecastTable.style.minWidth : ''
       };
       
       // Unlock all width constraints
@@ -1810,6 +1812,11 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (dashboardGrid) {
         dashboardGrid.style.width = 'fit-content';
+      }
+      // Force table to expand beyond 100%
+      if (forecastTable) {
+        forecastTable.style.width = 'max-content';
+        forecastTable.style.minWidth = '1600px';
       }
       
       try {
@@ -1837,6 +1844,10 @@ document.addEventListener("DOMContentLoaded", () => {
         alert("เกิดข้อผิดพลาดในการบันทึกรูปภาพ");
       } finally {
         // Restore ALL original styles
+        if (forecastTable) {
+          forecastTable.style.width = saved.forecastTableWidth;
+          forecastTable.style.minWidth = saved.forecastTableMinWidth;
+        }
         if (tableResponsive) {
           tableResponsive.style.overflow = saved.tableResponsiveOverflow;
           tableResponsive.style.maxWidth = saved.tableResponsiveMaxWidth;
