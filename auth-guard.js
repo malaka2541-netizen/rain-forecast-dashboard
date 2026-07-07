@@ -30,6 +30,7 @@
       .single();
 
     if (error || !profile || profile.status !== 'approved') {
+      window.__AUTH_BLOCKED = true;
       // Block access and show pending message
       document.body.innerHTML = `
         <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: 'Prompt', sans-serif; background-color: #f1f5f9; padding: 2rem; text-align: center; margin: 0;">

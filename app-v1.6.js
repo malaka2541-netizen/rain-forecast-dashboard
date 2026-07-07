@@ -1702,6 +1702,8 @@ async function openAccuracyModal() {
 
 // Initialize application
 document.addEventListener("DOMContentLoaded", () => {
+  if (window.__AUTH_BLOCKED) return;
+
   const btnToggleLang = document.getElementById("btn-toggle-lang");
   if (btnToggleLang) {
     btnToggleLang.addEventListener("click", () => {
