@@ -1759,14 +1759,72 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- Download Table Logic ---
   const btnDownloadTable = document.getElementById("btn-download-table");
+  const waitForTableExportFonts = async () => {
+    if (!document.fonts || typeof document.fonts.load !== "function") return;
+    await Promise.all([
+      document.fonts.load("500 16px Sarabun"),
+      document.fonts.load("600 16px Sarabun"),
+      document.fonts.load("700 16px Sarabun"),
+      document.fonts.load("900 16px 'Font Awesome 6 Free'").catch(() => null),
+      document.fonts.ready
+    ]);
+  };
+
+  const captureForecastTableImage = async (tableCard) => {
+    if (window.htmlToImage && typeof window.htmlToImage.toPng === "function") {
+      return window.htmlToImage.toPng(tableCard, {
+        pixelRatio: 2,
+        backgroundColor: "#f8fafc",
+        cacheBust: true,
+        width: tableCard.offsetWidth,
+        height: tableCard.offsetHeight,
+        style: {
+          transform: "none"
+        }
+      });
+    }
+
+    if (typeof html2canvas === "undefined") {
+      throw new Error("Image export library is not ready");
+    }
+
+    const canvas = await html2canvas(tableCard, {
+      scale: 2,
+      backgroundColor: "#f8fafc",
+      useCORS: true,
+      logging: false,
+      onclone: (clonedDoc) => {
+        const clonedTableCard = clonedDoc.querySelector(".table-card");
+        if (!clonedTableCard) return;
+        clonedTableCard.style.fontFamily = "'Sarabun', sans-serif";
+        clonedTableCard.querySelectorAll("*").forEach((el) => {
+          if (el.classList.contains("fa") || el.classList.contains("fa-solid") || el.classList.contains("fas")) {
+            el.style.fontFamily = "'Font Awesome 6 Free'";
+            el.style.fontWeight = "900";
+          } else {
+            el.style.fontFamily = "'Sarabun', sans-serif";
+          }
+          el.style.letterSpacing = "0";
+        });
+      }
+    });
+
+    return canvas.toDataURL("image/png");
+  };
+
+  const waitForExportLayout = () => new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve));
+  });
+
   if (btnDownloadTable) {
     btnDownloadTable.addEventListener("click", async () => {
-      if (typeof html2canvas === 'undefined') {
+      if (!(window.htmlToImage && typeof window.htmlToImage.toPng === "function") && typeof html2canvas === 'undefined') {
         alert("ระบบดาวน์โหลดภาพกำลังโหลด โปรดลองใหม่อีกครั้ง");
         return;
       }
       
       const originalHtml = btnDownloadTable.innerHTML;
+      const originalShowTableWeatherIcons = showTableWeatherIcons;
       btnDownloadTable.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
       btnDownloadTable.disabled = true;
       
@@ -1790,12 +1848,19 @@ document.addEventListener("DOMContentLoaded", () => {
         tableResponsiveMaxWidth: tableResponsive ? tableResponsive.style.maxWidth : '',
         tableCardWidth: tableCard ? tableCard.style.width : '',
         tableCardMaxWidth: tableCard ? tableCard.style.maxWidth : '',
+        tableCardPadding: tableCard ? tableCard.style.padding : '',
         appContainerMaxWidth: appContainer ? appContainer.style.maxWidth : '',
         appContainerWidth: appContainer ? appContainer.style.width : '',
         dashboardGridWidth: dashboardGrid ? dashboardGrid.style.width : '',
         forecastTableWidth: forecastTable ? forecastTable.style.width : '',
-        forecastTableMinWidth: forecastTable ? forecastTable.style.minWidth : ''
+        forecastTableMinWidth: forecastTable ? forecastTable.style.minWidth : '',
+        forecastTableTableLayout: forecastTable ? forecastTable.style.tableLayout : ''
       };
+
+      document.body.classList.add('is-exporting-table');
+      showTableWeatherIcons = false;
+      updateTableIconToggleUI();
+      renderTable();
       
       // Unlock all width constraints
       if (tableResponsive) {
@@ -1803,8 +1868,9 @@ document.addEventListener("DOMContentLoaded", () => {
         tableResponsive.style.maxWidth = 'none';
       }
       if (tableCard) {
-        tableCard.style.width = 'fit-content';
+        tableCard.style.width = '1680px';
         tableCard.style.maxWidth = 'none';
+        tableCard.style.padding = '24px';
       }
       if (appContainer) {
         appContainer.style.maxWidth = 'none';
@@ -1815,52 +1881,32 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       // Force table to expand beyond 100%
       if (forecastTable) {
-        forecastTable.style.width = 'max-content';
-        forecastTable.style.minWidth = '1600px';
+        forecastTable.style.width = '100%';
+        forecastTable.style.minWidth = '0';
+        forecastTable.style.tableLayout = 'fixed';
       }
       
       try {
-        // Now measure the ACTUAL full width of the table after all constraints are removed
-        const naturalWidth = forecastTable ? forecastTable.scrollWidth : tableCard.scrollWidth;
-        const captureWidth = Math.max(naturalWidth + 80, 1600);
-        
-        const canvas = await html2canvas(tableCard, {
-          scale: 2,
-          backgroundColor: '#f8fafc',
-          useCORS: true,
-          windowWidth: captureWidth,
-          width: captureWidth,
-          scrollX: 0,
-          scrollY: -window.scrollY,
-          logging: false,
-          onclone: (clonedDoc) => {
-            // FIX HTML2CANVAS THAI FONT BUG: 
-            // html2canvas calculates text width using the first font in the stack ('Outfit').
-            // Since 'Outfit' has no Thai glyphs, it calculates a narrow width, causing Thai text to overlap.
-            // Forcing 'Sarabun' as the primary font during capture fixes this entirely.
-            const clonedTableCard = clonedDoc.querySelector('.table-card');
-            if (clonedTableCard) {
-              clonedTableCard.style.fontFamily = "'Sarabun', sans-serif";
-              const allElements = clonedTableCard.querySelectorAll('*');
-              allElements.forEach(el => {
-                el.style.fontFamily = "'Sarabun', sans-serif";
-              });
-            }
-          }
-        });
+        await waitForTableExportFonts();
+        await waitForExportLayout();
         
         const link = document.createElement('a');
         link.download = `forecast-table-${new Date().toISOString().split('T')[0]}.png`;
-        link.href = canvas.toDataURL('image/png');
+        link.href = await captureForecastTableImage(tableCard);
         link.click();
       } catch (error) {
         console.error("Error generating image:", error);
         alert("เกิดข้อผิดพลาดในการบันทึกรูปภาพ");
       } finally {
+        document.body.classList.remove('is-exporting-table');
+        showTableWeatherIcons = originalShowTableWeatherIcons;
+        updateTableIconToggleUI();
+        renderTable();
         // Restore ALL original styles
         if (forecastTable) {
           forecastTable.style.width = saved.forecastTableWidth;
           forecastTable.style.minWidth = saved.forecastTableMinWidth;
+          forecastTable.style.tableLayout = saved.forecastTableTableLayout;
         }
         if (tableResponsive) {
           tableResponsive.style.overflow = saved.tableResponsiveOverflow;
@@ -1869,6 +1915,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (tableCard) {
           tableCard.style.width = saved.tableCardWidth;
           tableCard.style.maxWidth = saved.tableCardMaxWidth;
+          tableCard.style.padding = saved.tableCardPadding;
         }
         if (appContainer) {
           appContainer.style.maxWidth = saved.appContainerMaxWidth;
