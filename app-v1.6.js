@@ -1769,9 +1769,13 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         const tableCard = document.querySelector('.table-card');
         const canvas = await html2canvas(tableCard, {
-          scale: 2, // High resolution
+          scale: 1.5,
           backgroundColor: '#f8fafc',
-          useCORS: true
+          useCORS: true,
+          windowWidth: tableCard.scrollWidth,
+          scrollX: 0,
+          scrollY: 0,
+          logging: false
         });
         
         const link = document.createElement('a');
