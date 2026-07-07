@@ -325,6 +325,11 @@ function getWeatherDetails(weatherCode, precipitationMm = 0, windGustKmh = 0, pr
   if ([1, 2].includes(code)) {
     return {
       iconClass: isNight ? "fa-solid fa-cloud-moon weather-icon-partly-cloudy-night" : "fa-solid fa-cloud-sun weather-icon-partly-cloudy",
+      stackedIcon: true,
+      stackBack: isNight ? "fa-solid fa-moon" : "fa-solid fa-sun",
+      stackFront: "fa-solid fa-cloud",
+      stackBackColor: isNight ? "#cbd5e1" : "#f59e0b",
+      stackFrontColor: "#94a3b8",
       label: "เมฆบางส่วน",
       severity: "cloudy",
       isStorm: false
@@ -409,6 +414,12 @@ function getStormRisk(weatherCode, windGustKmh = 0, probability = null) {
 }
 
 function buildWeatherIconHtml(weather) {
+  if (weather.stackedIcon) {
+    return `<span class="fa-layers fa-fw weather-icon-stacked" aria-hidden="true">
+      <i class="${weather.stackBack}" style="color: ${weather.stackBackColor};"></i>
+      <i class="${weather.stackFront}" style="color: ${weather.stackFrontColor}; font-size: 0.65em; transform: translate(-25%, 20%);"></i>
+    </span>`;
+  }
   return `<i class="${weather.iconClass} weather-icon weather-icon-${weather.severity}" aria-hidden="true"></i>`;
 }
 
@@ -1766,12 +1777,24 @@ document.addEventListener("DOMContentLoaded", () => {
       const originalGeneralNoteDisplay = generalNote ? generalNote.style.display : '';
       if (generalNote) generalNote.style.display = 'none';
       
+      // Expand the table-responsive container so html2canvas captures the full table width
+      const tableResponsive = document.querySelector('.table-responsive');
+      const originalOverflow = tableResponsive ? tableResponsive.style.overflow : '';
+      const originalMaxWidth = tableResponsive ? tableResponsive.style.maxWidth : '';
+      if (tableResponsive) {
+        tableResponsive.style.overflow = 'visible';
+        tableResponsive.style.maxWidth = 'none';
+      }
+      
       try {
         const tableCard = document.querySelector('.table-card');
+        const fullWidth = tableCard.scrollWidth;
         const canvas = await html2canvas(tableCard, {
           scale: 2,
           backgroundColor: '#f8fafc',
           useCORS: true,
+          windowWidth: fullWidth + 40,
+          width: fullWidth + 40,
           scrollX: 0,
           scrollY: 0,
           logging: false
@@ -1785,6 +1808,11 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error("Error generating image:", error);
         alert("เกิดข้อผิดพลาดในการบันทึกรูปภาพ");
       } finally {
+        // Restore table-responsive overflow
+        if (tableResponsive) {
+          tableResponsive.style.overflow = originalOverflow;
+          tableResponsive.style.maxWidth = originalMaxWidth;
+        }
         btnDownloadTable.style.display = 'flex';
         btnDownloadTable.innerHTML = originalHtml;
         btnDownloadTable.disabled = false;

@@ -1500,13 +1500,33 @@ select:focus {
 }
 
 .weather-icon-partly-cloudy {
-  /* Solid amber-yellow — html2canvas does not support webkit-clip gradient */
   color: #f59e0b;
 }
 
 .weather-icon-partly-cloudy-night {
-  /* Solid slate-blue for night partly cloudy */
   color: #94a3b8;
+}
+
+.weather-icon-stacked {
+  display: inline-flex;
+  position: relative;
+  width: 1.2em;
+  height: 1em;
+  vertical-align: middle;
+}
+
+.weather-icon-stacked i:first-child {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-size: 0.85em;
+}
+
+.weather-icon-stacked i:last-child {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  font-size: 0.75em;
 }
 
 .weather-icon-clear-night {
