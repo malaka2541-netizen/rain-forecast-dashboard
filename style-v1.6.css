@@ -56,6 +56,24 @@
   --input-border: rgba(0, 0, 0, 0.12);
 }
 
+/* Dynamic Weather Backgrounds (Glows & Tints) */
+body.weather-clear {
+  --accent-glow-1: rgba(253, 224, 71, 0.35); /* Yellow/Gold */
+  --accent-glow-2: rgba(125, 211, 252, 0.35); /* Sky Blue */
+}
+body.weather-cloudy {
+  --accent-glow-1: rgba(148, 163, 184, 0.3); /* Slate */
+  --accent-glow-2: rgba(203, 213, 225, 0.3); /* Lighter Slate */
+}
+body.weather-rain {
+  --accent-glow-1: rgba(59, 130, 246, 0.35); /* Blue */
+  --accent-glow-2: rgba(71, 85, 105, 0.3); /* Slate dark */
+}
+body.weather-storm {
+  --accent-glow-1: rgba(139, 92, 246, 0.35); /* Violet */
+  --accent-glow-2: rgba(225, 29, 72, 0.25); /* Rose/Red */
+}
+
 /* Global Reset */
 * {
   margin: 0;
@@ -81,6 +99,7 @@ body {
   filter: blur(140px);
   z-index: -1;
   pointer-events: none;
+  transition: background 1.5s ease;
 }
 
 .glow-1 {

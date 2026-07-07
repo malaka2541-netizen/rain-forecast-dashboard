@@ -1250,6 +1250,13 @@ function updateAlertMarquee(alertCard) {
   kpiAlertMarquee.classList.remove("hidden");
 }
 
+function updateWeatherBackground(severity) {
+  document.body.classList.remove('weather-clear', 'weather-cloudy', 'weather-rain', 'weather-storm');
+  if (severity) {
+    document.body.classList.add(`weather-${severity}`);
+  }
+}
+
 function updateCurrentConditionsCard() {
   const snapshot = getCurrentForecastSnapshot();
   if (!snapshot || snapshot.probability === null) {
@@ -1273,6 +1280,8 @@ function updateCurrentConditionsCard() {
   forecastCurrentLabel.innerText = "โอกาสฝนตอนนี้";
   displayDateRange.innerText = `${weather.label} | ${rainIntensity.label}`;
   weatherIconDynamic.innerHTML = buildWeatherIconHtml(weather);
+  
+  updateWeatherBackground(weather.severity);
 }
 
 async function fetchOpenMeteoForecast(lat, lon) {
