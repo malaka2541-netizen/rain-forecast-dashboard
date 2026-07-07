@@ -1777,26 +1777,54 @@ document.addEventListener("DOMContentLoaded", () => {
       const originalGeneralNoteDisplay = generalNote ? generalNote.style.display : '';
       if (generalNote) generalNote.style.display = 'none';
       
-      // Expand the table-responsive container so html2canvas captures the full table width
+      // === Unlock ALL parent containers so the table can expand to its natural full width ===
+      const tableCard = document.querySelector('.table-card');
       const tableResponsive = document.querySelector('.table-responsive');
-      const originalOverflow = tableResponsive ? tableResponsive.style.overflow : '';
-      const originalMaxWidth = tableResponsive ? tableResponsive.style.maxWidth : '';
+      const appContainer = document.querySelector('.app-container');
+      const dashboardGrid = document.querySelector('.dashboard-grid-full');
+      const forecastTable = document.querySelector('.forecast-table');
+      
+      // Save original styles
+      const saved = {
+        tableResponsiveOverflow: tableResponsive ? tableResponsive.style.overflow : '',
+        tableResponsiveMaxWidth: tableResponsive ? tableResponsive.style.maxWidth : '',
+        tableCardWidth: tableCard ? tableCard.style.width : '',
+        tableCardMaxWidth: tableCard ? tableCard.style.maxWidth : '',
+        appContainerMaxWidth: appContainer ? appContainer.style.maxWidth : '',
+        appContainerWidth: appContainer ? appContainer.style.width : '',
+        dashboardGridWidth: dashboardGrid ? dashboardGrid.style.width : '',
+      };
+      
+      // Unlock all width constraints
       if (tableResponsive) {
         tableResponsive.style.overflow = 'visible';
         tableResponsive.style.maxWidth = 'none';
       }
+      if (tableCard) {
+        tableCard.style.width = 'fit-content';
+        tableCard.style.maxWidth = 'none';
+      }
+      if (appContainer) {
+        appContainer.style.maxWidth = 'none';
+        appContainer.style.width = 'fit-content';
+      }
+      if (dashboardGrid) {
+        dashboardGrid.style.width = 'fit-content';
+      }
       
       try {
-        const tableCard = document.querySelector('.table-card');
-        const fullWidth = tableCard.scrollWidth;
+        // Now measure the ACTUAL full width of the table after all constraints are removed
+        const naturalWidth = forecastTable ? forecastTable.scrollWidth : tableCard.scrollWidth;
+        const captureWidth = Math.max(naturalWidth + 80, 1600);
+        
         const canvas = await html2canvas(tableCard, {
           scale: 2,
           backgroundColor: '#f8fafc',
           useCORS: true,
-          windowWidth: fullWidth + 40,
-          width: fullWidth + 40,
+          windowWidth: captureWidth,
+          width: captureWidth,
           scrollX: 0,
-          scrollY: 0,
+          scrollY: -window.scrollY,
           logging: false
         });
         
@@ -1808,10 +1836,21 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error("Error generating image:", error);
         alert("เกิดข้อผิดพลาดในการบันทึกรูปภาพ");
       } finally {
-        // Restore table-responsive overflow
+        // Restore ALL original styles
         if (tableResponsive) {
-          tableResponsive.style.overflow = originalOverflow;
-          tableResponsive.style.maxWidth = originalMaxWidth;
+          tableResponsive.style.overflow = saved.tableResponsiveOverflow;
+          tableResponsive.style.maxWidth = saved.tableResponsiveMaxWidth;
+        }
+        if (tableCard) {
+          tableCard.style.width = saved.tableCardWidth;
+          tableCard.style.maxWidth = saved.tableCardMaxWidth;
+        }
+        if (appContainer) {
+          appContainer.style.maxWidth = saved.appContainerMaxWidth;
+          appContainer.style.width = saved.appContainerWidth;
+        }
+        if (dashboardGrid) {
+          dashboardGrid.style.width = saved.dashboardGridWidth;
         }
         btnDownloadTable.style.display = 'flex';
         btnDownloadTable.innerHTML = originalHtml;
