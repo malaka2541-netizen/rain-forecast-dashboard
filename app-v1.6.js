@@ -1832,7 +1832,21 @@ document.addEventListener("DOMContentLoaded", () => {
           width: captureWidth,
           scrollX: 0,
           scrollY: -window.scrollY,
-          logging: false
+          logging: false,
+          onclone: (clonedDoc) => {
+            // FIX HTML2CANVAS THAI FONT BUG: 
+            // html2canvas calculates text width using the first font in the stack ('Outfit').
+            // Since 'Outfit' has no Thai glyphs, it calculates a narrow width, causing Thai text to overlap.
+            // Forcing 'Sarabun' as the primary font during capture fixes this entirely.
+            const clonedTableCard = clonedDoc.querySelector('.table-card');
+            if (clonedTableCard) {
+              clonedTableCard.style.fontFamily = "'Sarabun', sans-serif";
+              const allElements = clonedTableCard.querySelectorAll('*');
+              allElements.forEach(el => {
+                el.style.fontFamily = "'Sarabun', sans-serif";
+              });
+            }
+          }
         });
         
         const link = document.createElement('a');
