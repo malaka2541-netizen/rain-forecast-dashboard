@@ -64,7 +64,8 @@
       </div>
     </header>
 
-
+    <main class="dashboard-grid-full">
+      <div class="top-row-grid">
         <!-- การ์ดรวม: สถานที่ + ช่วงฝนสูงสุด -->
         <div id="location-card" class="combined-weather-card glass-card clickable-card" title="คลิกเพื่อตั้งค่าสถานที่">
           <div class="weather-art">
@@ -173,6 +174,7 @@
               <span class="legend-badge badge-high"><i class="fa-solid fa-circle"></i> <span data-i18n="legend-high">สูง (71-90%)</span></span>
               <span class="legend-badge badge-very-high"><i class="fa-solid fa-circle"></i> <span data-i18n="legend-very-high">สูงมาก (91-100%)</span></span>
             </div>
+            <button id="btn-toggle-table-icons" class="table-visibility-btn" type="button" aria-pressed="true" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 6px;">&#3626;&#3633;&#3597;&#3621;&#3633;&#3585;&#3625;&#3603;&#3660;: &#3648;&#3611;&#3636;&#3604;</button>
             <button id="btn-download-table" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem; border: 1px solid #cbd5e1; background: white; border-radius: 6px; cursor: pointer; color: #475569;">
               <i class="fa-solid fa-download"></i> Download
             </button>
