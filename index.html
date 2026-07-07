@@ -29,13 +29,18 @@
 
   <div class="app-container">
     <header class="main-header glass-card">
-      <div class="header-logo">
-        <div class="logo-icon">
-          <i class="fa-solid fa-cloud-showers-heavy"></i>
+      <div class="header-logo" style="display: flex; align-items: center; gap: 1.5rem;">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <div class="logo-icon">
+            <i class="fa-solid fa-cloud-showers-heavy"></i>
+          </div>
+          <div class="logo-text">
+            <h1>Rain Forecast</h1>
+            <span>Hourly Rain Planning Dashboard</span>
+          </div>
         </div>
-        <div class="logo-text">
-          <h1>Rain Forecast</h1>
-          <span>Hourly Rain Planning Dashboard</span>
+        <div class="kpi-context" style="border-left: 2px solid var(--border-light); padding-left: 1.5rem; display: flex; align-items: center; min-height: 40px;">
+          <strong id="kpi-selected-date" style="font-size: 1.15rem; color: var(--text-main); letter-spacing: 0.5px;">-</strong>
         </div>
       </div>
 
@@ -60,11 +65,8 @@
     </header>
 
     <main class="dashboard-grid-full">
-      <div class="forecast-source-toolbar">
-        <div class="kpi-context">
-          <strong id="kpi-selected-date" style="font-size: 1.1rem; color: var(--text-main);">-</strong>
-        </div>
-        <div class="forecast-toolbar-group" style="display: flex; gap: 1.5rem; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+      <div class="forecast-source-toolbar" style="justify-content: flex-end;">
+        <div class="forecast-toolbar-group">
           <div class="forecast-source-switch" role="tablist" aria-label="เลือกชุดข้อมูลพยากรณ์">
             <button id="btn-source-openmeteo" class="source-switch-btn active" type="button" aria-pressed="true" style="position: relative;">
               Open-Meteo 10 วัน
@@ -72,9 +74,6 @@
             </button>
             <button id="btn-source-openweather" class="source-switch-btn" type="button" aria-pressed="false" style="display: none;">OpenWeather 48 ชม.</button>
             <button id="btn-source-googleweather" class="source-switch-btn" type="button" aria-pressed="false">Google Weather 240 ชม.</button>
-          </div>
-          <div class="forecast-display-toolbar" style="margin: 0; padding-left: 1.5rem; border-left: 1px solid var(--border-light);">
-            <button id="btn-toggle-table-icons" class="table-visibility-btn" type="button" aria-pressed="true">&#3626;&#3633;&#3597;&#3621;&#3633;&#3585;&#3625;&#3603;&#3660;: &#3648;&#3611;&#3636;&#3604;</button>
           </div>
         </div>
       </div>
@@ -177,6 +176,7 @@
               <span class="legend-badge badge-high"><i class="fa-solid fa-circle"></i> <span data-i18n="legend-high">สูง (71-90%)</span></span>
               <span class="legend-badge badge-very-high"><i class="fa-solid fa-circle"></i> <span data-i18n="legend-very-high">สูงมาก (91-100%)</span></span>
             </div>
+            <button id="btn-toggle-table-icons" class="table-visibility-btn" type="button" aria-pressed="true" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 6px;">&#3626;&#3633;&#3597;&#3621;&#3633;&#3585;&#3625;&#3603;&#3660;: &#3648;&#3611;&#3636;&#3604;</button>
             <button id="btn-download-table" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem; border: 1px solid #cbd5e1; background: white; border-radius: 6px; cursor: pointer; color: #475569;">
               <i class="fa-solid fa-download"></i> Download
             </button>
