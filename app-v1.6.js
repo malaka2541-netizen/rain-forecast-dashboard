@@ -609,7 +609,8 @@ function findPeakRainWindow(entries) {
     peakEntry.entry.weatherCode,
     peakEntry.entry.precipitation,
     peakEntry.entry.windGust,
-    peakEntry.probability
+    peakEntry.probability,
+    peakEntry.time
   );
   const rainIntensity = getRainIntensity(peakEntry.entry.precipitation);
   const stormRisk = getStormRisk(peakEntry.entry.weatherCode, peakEntry.entry.windGust, peakEntry.probability);
@@ -681,7 +682,7 @@ function findStrongestRainProfile(entries) {
   let best = null;
 
   entries.forEach(item => {
-    const weather = getWeatherDetails(item.entry.weatherCode, item.entry.precipitation, item.entry.windGust, item.probability);
+    const weather = getWeatherDetails(item.entry.weatherCode, item.entry.precipitation, item.entry.windGust, item.probability, item.time);
     const rainIntensity = getRainIntensity(item.entry.precipitation);
     const stormRisk = getStormRisk(item.entry.weatherCode, item.entry.windGust, item.probability);
     const candidate = {
@@ -720,7 +721,7 @@ function findStrongestRainProfile(entries) {
 
 
 function buildTableTooltipHtml(hour, entry) {
-  const weather = getWeatherDetails(entry.weatherCode, entry.precipitation, entry.windGust, entry.probability);
+  const weather = getWeatherDetails(entry.weatherCode, entry.precipitation, entry.windGust, entry.probability, hour);
   const weatherIconHtml = buildWeatherIconHtml(weather);
   const rainIntensity = getRainIntensity(entry.precipitation);
   const stormRisk = getStormRisk(entry.weatherCode, entry.windGust, entry.probability);
@@ -850,7 +851,7 @@ function openComparisonModal(dateStr, hour) {
   let html = '';
   
   if (omEntry) {
-    const weather = getWeatherDetails(omEntry.weatherCode, omEntry.precipitation, omEntry.windGust, omEntry.probability);
+    const weather = getWeatherDetails(omEntry.weatherCode, omEntry.precipitation, omEntry.windGust, omEntry.probability, hour);
     html += `
       <div style="padding: 1rem; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px;">
         <h4 style="margin: 0 0 0.5rem 0; color: #0ea5e9;">${sourceComparisonState.activeSource === "openmeteo" ? "Open-Meteo (หลัก)" : "Open-Meteo (เปรียบเทียบ)"}</h4>
@@ -861,28 +862,9 @@ function openComparisonModal(dateStr, hour) {
     `;
   }
   
-  if (owEntry) {
-    const weather = getWeatherDetails(owEntry.weatherCode, owEntry.precipitation, owEntry.windGust, owEntry.probability);
-    const timeNote = (owHourUsed !== hour) ? ` <span style="font-size: 0.8rem; color: #64748b;">(เวลาพยากรณ์ใกล้เคียง: ${owHourUsed} น.)</span>` : '';
-    html += `
-      <div style="padding: 1rem; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px;">
-        <h4 style="margin: 0 0 0.5rem 0; color: #f59e0b;">${sourceComparisonState.activeSource === "openweather" ? "OpenWeather (หลัก)" : "OpenWeather (เปรียบเทียบ)"}${timeNote}</h4>
-        <div>โอกาสฝน: ${Math.round(owEntry.probability * 100)}%</div>
-        <div>ปริมาณฝนคาดการณ์: ${formatMillimeters(owEntry.precipitation)}</div>
-        <div>สภาพอากาศ: ${weather.label}</div>
-      </div>
-    `;
-  } else {
-    html += `
-      <div style="padding: 1rem; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; opacity: 0.7;">
-        <h4 style="margin: 0 0 0.5rem 0; color: #f59e0b;">${sourceComparisonState.activeSource === "openweather" ? "OpenWeather (หลัก)" : "OpenWeather (เปรียบเทียบ)"}</h4>
-        <div>ไม่มีข้อมูลสำหรับชั่วโมงนี้ในช่วงพยากรณ์ 48 ชั่วโมง หรือยังไม่ได้ตั้งค่า API Key</div>
-      </div>
-    `;
-  }
   
   if (gwEntry) {
-    const weather = getWeatherDetails(gwEntry.weatherCode, gwEntry.precipitation, gwEntry.windGust, gwEntry.probability);
+    const weather = getWeatherDetails(gwEntry.weatherCode, gwEntry.precipitation, gwEntry.windGust, gwEntry.probability, hour);
     const timeNote = (gwHourUsed !== hour) ? ` <span style="font-size: 0.8rem; color: #64748b;">(เวลาใกล้เคียง: ${gwHourUsed} น.)</span>` : '';
     html += `
       <div style="padding: 1rem; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px;">
@@ -1270,7 +1252,8 @@ function updateCurrentConditionsCard() {
     snapshot.entry.weatherCode,
     snapshot.entry.precipitation,
     snapshot.entry.windGust,
-    snapshot.probability
+    snapshot.probability,
+    snapshot.hour
   );
   const rainIntensity = getRainIntensity(snapshot.entry.precipitation);
 
@@ -2628,7 +2611,7 @@ function formatDate(dateString, withYear = true) {
   
   if (currentLang === "zh") {
     const zhMonths = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
-    return `${dateObj.getFullYear()}年${zhMonths[monthIdx]}${day}日`;
+    return withYear ? `${dateObj.getFullYear()}年${zhMonths[monthIdx]}${day}日` : `${zhMonths[monthIdx]}${day}日`;
   } else {
     const thMonthsShort = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
     const yearTh = (dateObj.getFullYear() + 543) % 100;
@@ -2645,7 +2628,7 @@ function formatDateTab(dateString) {
   
   if (currentLang === "zh") {
     const zhDays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
-    return `${zhDays[dayIdx]} ${day}日`;
+    return `${day}日 (${zhDays[dayIdx]})`;
   } else {
     const thDays = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
     return `${thDays[dayIdx]} ${day}`;
@@ -2857,3 +2840,20 @@ function analyzeStormMovement(scanT, scanT_minus, timeDiffSec) {
     message.innerHTML = `พบกลุ่มฝนทาง <strong>ทิศ${dirName}</strong> (ห่าง ${currentKm} กม.) <strong>กลุ่มฝนค่อนข้างทรงตัวในพื้นที่ ไม่ได้เคลื่อนตัวเข้าหาอย่างชัดเจน</strong>`;
   }
 }
+
+window.addEventListener('languagechanged', () => {
+  if (activeForecastData && activeForecastData.length > 0) {
+    const activeTab = document.querySelector(".tab-btn.active");
+    const selectedDate = activeTab ? activeTab.dataset.date : getBangkokNowKeys().dateKey;
+    kpiSelectedDate.innerText = formatDateContext(selectedDate);
+    
+    updateCurrentConditionsCard();
+    renderForecastTabs();
+    
+    if (activeTab) {
+      document.querySelector(`.tab-btn[data-date="${selectedDate}"]`)?.click();
+    } else {
+      renderForecastTable(selectedDate);
+    }
+  }
+});

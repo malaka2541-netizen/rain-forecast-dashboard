@@ -71,6 +71,7 @@ body {
   overflow-x: hidden;
   position: relative;
   transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
+  zoom: 0.8;
 }
 
 /* Background Glow Effects */
@@ -221,12 +222,18 @@ body {
 }
 
 .btn-secondary {
-  background: var(--secondary);
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
   color: var(--text-main);
 }
 
 .btn-secondary:hover {
-  background: var(--secondary-hover);
+  background: var(--bg-hover);
+}
+
+#btn-logout:hover {
+  background-color: #fee2e2 !important;
+  color: #dc2626 !important;
 }
 
 .btn-icon {
@@ -892,7 +899,7 @@ select:focus {
   gap: 2rem;
   width: max-content;
   min-width: 100%;
-  animation: ticker-scroll 40s linear infinite;
+  animation: ticker-scroll 80s linear infinite;
 }
 
 .kpi-alert-marquee:hover .kpi-alert-marquee-track {
@@ -1493,13 +1500,13 @@ select:focus {
 }
 
 .weather-icon-partly-cloudy {
-  background: -webkit-linear-gradient(135deg, #f59e0b 45%, #94a3b8 55%);
+  background: -webkit-linear-gradient(45deg, #94a3b8 45%, #f59e0b 55%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .weather-icon-partly-cloudy-night {
-  background: -webkit-linear-gradient(135deg, #cbd5e1 45%, #64748b 55%);
+  background: -webkit-linear-gradient(45deg, #64748b 45%, #cbd5e1 55%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }

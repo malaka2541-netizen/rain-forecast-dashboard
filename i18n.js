@@ -249,6 +249,7 @@ function setLanguage(lang) {
     if (indicator) {
       indicator.textContent = lang.toUpperCase();
     }
+    window.dispatchEvent(new Event('languagechanged'));
   }
 }
 

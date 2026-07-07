@@ -60,15 +60,11 @@
     </header>
 
     <main class="dashboard-grid-full">
-      <div class="kpi-context" style="margin-bottom: -0.5rem; padding-left: 0.25rem;">
-        <strong id="kpi-selected-date">-</strong>
-      </div>
       <div class="forecast-source-toolbar">
-        <div class="forecast-source-meta">
-          <span class="forecast-source-label" data-i18n="source-label">ชุดข้อมูลที่กำลังแสดง</span>
-          <strong id="active-source-title">Open-Meteo 10 วัน</strong>
+        <div class="kpi-context">
+          <strong id="kpi-selected-date" style="font-size: 1.1rem; color: var(--text-main);">-</strong>
         </div>
-        <div class="forecast-toolbar-group" style="display: flex; gap: 1rem; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+        <div class="forecast-toolbar-group" style="display: flex; gap: 1.5rem; align-items: center; justify-content: space-between; flex-wrap: wrap;">
           <div class="forecast-source-switch" role="tablist" aria-label="เลือกชุดข้อมูลพยากรณ์">
             <button id="btn-source-openmeteo" class="source-switch-btn active" type="button" aria-pressed="true" style="position: relative;">
               Open-Meteo 10 วัน
@@ -77,7 +73,7 @@
             <button id="btn-source-openweather" class="source-switch-btn" type="button" aria-pressed="false" style="display: none;">OpenWeather 48 ชม.</button>
             <button id="btn-source-googleweather" class="source-switch-btn" type="button" aria-pressed="false">Google Weather 240 ชม.</button>
           </div>
-          <div class="forecast-display-toolbar" style="margin: 0;">
+          <div class="forecast-display-toolbar" style="margin: 0; padding-left: 1.5rem; border-left: 1px solid var(--border-light);">
             <button id="btn-toggle-table-icons" class="table-visibility-btn" type="button" aria-pressed="true">&#3626;&#3633;&#3597;&#3621;&#3633;&#3585;&#3625;&#3603;&#3660;: &#3648;&#3611;&#3636;&#3604;</button>
           </div>
         </div>
@@ -142,9 +138,6 @@
               <p id="kpi-alert-headline">กำลังตรวจสอบ</p>
               <span id="kpi-alert-detail">ดึงข้อมูลล่าสุดจาก TMD</span>
               <div class="kpi-alert-inline">
-                <a id="kpi-alert-link" href="#" target="_blank" class="btn-alert-link hidden" title="เปิดหน้าประกาศฉบับเต็ม">
-                  <i class="fa-solid fa-arrow-up-right-from-square"></i> <span data-i18n="alert-read-full">อ่านประกาศฉบับเต็ม</span>
-                </a>
                 <a id="kpi-alert-pdf" href="#" target="_blank" class="btn-alert-link hidden" style="background: var(--primary-accent); color: white;" title="ดาวน์โหลดเอกสาร PDF">
                   <i class="fa-solid fa-file-pdf"></i> <span>ดาวน์โหลดเอกสาร</span>
                 </a>
@@ -244,7 +237,7 @@
         
         <div class="forecast-general-note" style="padding: 15px; background: rgba(59, 130, 246, 0.05); border-left: 4px solid #3b82f6; border-radius: 4px; font-size: 0.85rem; color: #475569; margin-top: 1.5rem;">
           <p style="margin-bottom: 8px;"><i class="fa-solid fa-lightbulb" style="color: #3b82f6;"></i> <strong>หมายเหตุ:</strong> ตัวเลขเปอร์เซ็นต์ (%) ในตารางคือ <strong>"โอกาสที่จะเกิดฝน"</strong> เท่านั้น ไม่ได้บ่งบอกถึง <strong>"ปริมาณความหนักเบาของฝน"</strong> <br>
-          <span style="color: #64748b; font-size: 0.8rem;">(ยกตัวอย่างเช่น: โอกาส 100% หมายความว่ามีโอกาสตกแน่นอน แต่อาจจะเป็นเพียงฝนตกละอองปรอยๆ ปริมาณแค่ 0.1 มม. ก็ได้)</span><br> 
+          <span style="color: #64748b; font-size: 0.8rem;">(ยกตัวอย่างเช่น: โอกาส 100% หมายถึงโมเดลพยากรณ์มีความมั่นใจสูงมากว่าจะเกิดฝน แต่อาจจะเป็นเพียงฝนตกละอองปรอยๆ ปริมาณแค่ 0.1 มม. ก็ได้)</span><br> 
           หากต้องการประเมินความหนักเบา ให้ดูจากปริมาณฝนคาดการณ์</p>
           <p style="margin-bottom: 0;"><i class="fa-solid fa-location-crosshairs" style="color: #3b82f6;"></i> <strong>พื้นที่ครอบคลุม:</strong> ข้อมูลพยากรณ์นี้อ้างอิงจากแบบจำลองสภาพอากาศ ซึ่งครอบคลุมพื้นที่ <strong>รัศมีประมาณ 3-5 กิโลเมตร</strong> รอบจุดที่ท่านปักหมุด</p>
         </div>
