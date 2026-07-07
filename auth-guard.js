@@ -16,6 +16,8 @@
     // 3. Check Session
     const { data: { session } } = await window.supabaseClient.auth.getSession();
     
+    // === TEMPORARILY BYPASSED LOGIN SYSTEM (PUBLIC ACCESS) ===
+    /*
     if (!session) {
       // Not logged in, redirect
       window.location.replace('/login.html');
@@ -57,6 +59,8 @@
       });
       return; // Stop execution to prevent loading the dashboard
     }
+    */
+    // ==========================================================
 
     // 4. Set up Logout button
     const setupLogoutBtn = () => {
