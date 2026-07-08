@@ -1385,7 +1385,7 @@ body.is-exporting-table .table-header {
   margin-bottom: 18px;
 }
 
-body.is-exporting-table .table-header h2 {
+body.is-exporting-table .table-header h2, body.is-exporting-table .table-header h2 * {
   flex: 0 0 auto;
   font-size: 1.12rem;
   line-height: 1.25;
@@ -1470,7 +1470,7 @@ body.is-exporting-table .forecast-reliability-note {
   padding-top: 18px;
 }
 
-body.is-exporting-table .forecast-reliability-note h4 {
+body.is-exporting-table .forecast-reliability-note h4, body.is-exporting-table .forecast-reliability-note h4 * {
   font-size: 1rem;
   margin-bottom: 12px;
   flex-wrap: nowrap !important; white-space: nowrap !important;
