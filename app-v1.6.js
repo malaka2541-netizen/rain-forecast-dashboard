@@ -1735,7 +1735,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (activeForecastData && activeForecastData.length > 0) {
         updateCurrentWeatherUI(activeForecastData[0]);
         renderForecastChart(activeForecastData);
-        renderForecastTable(activeForecastData);
+        renderTable();
       }
       renderSourceComparison();
       
@@ -1896,7 +1896,7 @@ document.addEventListener("DOMContentLoaded", () => {
       
       // Force hide icons during export as requested
       showTableWeatherIcons = false;
-      renderForecastTable();
+      renderTable();
 
       
       // We temporarily hide the download button, icon toggle button, and general note so they don't appear in the screenshot
@@ -3135,7 +3135,7 @@ window.addEventListener('languagechanged', () => {
     if (activeTab) {
       document.querySelector(`.tab-btn[data-date="${selectedDate}"]`)?.click();
     } else {
-      renderForecastTable(selectedDate);
+      renderTable();
     }
   }
 });
