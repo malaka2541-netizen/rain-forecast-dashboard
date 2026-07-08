@@ -1894,6 +1894,11 @@ document.addEventListener("DOMContentLoaded", () => {
       btnDownloadTable.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
       btnDownloadTable.disabled = true;
       
+      // Force hide icons during export as requested
+      showTableWeatherIcons = false;
+      renderForecastTable();
+
+      
       // We temporarily hide the download button, icon toggle button, and general note so they don't appear in the screenshot
       btnDownloadTable.style.display = 'none';
       if (btnToggleTableIcons) btnToggleTableIcons.style.display = 'none';

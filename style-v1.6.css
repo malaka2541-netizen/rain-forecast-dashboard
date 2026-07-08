@@ -565,7 +565,7 @@ select:focus {
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-main);
-  white-space: normal; flex-wrap: nowrap !important;
+  flex-wrap: nowrap !important; white-space: nowrap !important;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 80%;
@@ -928,7 +928,7 @@ select:focus {
 }
 
 .kpi-alert-marquee-track span {
-  white-space: normal; flex-wrap: nowrap !important;
+  flex-wrap: nowrap !important; white-space: nowrap !important;
   padding-left: 1rem;
   font-size: 0.76rem;
   font-weight: 600;
@@ -1251,7 +1251,7 @@ select:focus {
   font-weight: 700;
   padding: 0.7rem 1rem;
   cursor: pointer;
-  white-space: normal; flex-wrap: nowrap !important;
+  flex-wrap: nowrap !important; white-space: nowrap !important;
   transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
 }
 
@@ -1284,7 +1284,7 @@ select:focus {
   line-height: 1;
   pointer-events: none;
   z-index: 2;
-  white-space: normal; flex-wrap: nowrap !important;
+  flex-wrap: nowrap !important; white-space: nowrap !important;
 }
 
 .forecast-display-toolbar {
@@ -1303,7 +1303,7 @@ select:focus {
   font-weight: 700;
   padding: 0.6rem 0.95rem;
   cursor: pointer;
-  white-space: normal; flex-wrap: nowrap !important;
+  flex-wrap: nowrap !important; white-space: nowrap !important;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
   transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -1323,7 +1323,7 @@ select:focus {
   color: var(--text-muted);
   cursor: pointer;
   font-family: var(--font-main);
-  white-space: normal; flex-wrap: nowrap !important;
+  flex-wrap: nowrap !important; white-space: nowrap !important;
   transition: all 0.2s;
 }
 
@@ -1389,7 +1389,7 @@ body.is-exporting-table .table-header h2 {
   flex: 0 0 auto;
   font-size: 1.12rem;
   line-height: 1.25;
-  white-space: normal; flex-wrap: nowrap !important;
+  flex-wrap: nowrap !important; white-space: nowrap !important;
 }
 
 body.is-exporting-table .legend-badges {
@@ -1445,7 +1445,7 @@ body.is-exporting-table .forecast-table td {
   padding: 9px 7px;
   min-width: 0;
   line-height: 1.15;
-  white-space: normal; flex-wrap: nowrap !important;
+  flex-wrap: nowrap !important; white-space: nowrap !important;
 }
 
 body.is-exporting-table .forecast-table th:first-child,
@@ -1473,7 +1473,7 @@ body.is-exporting-table .forecast-reliability-note {
 body.is-exporting-table .forecast-reliability-note h4 {
   font-size: 1rem;
   margin-bottom: 12px;
-  white-space: normal; flex-wrap: nowrap !important;
+  flex-wrap: nowrap !important; white-space: nowrap !important;
 }
 
 body.is-exporting-table .r-level {
@@ -2164,7 +2164,7 @@ body.is-exporting-table .r-badge {
   border-radius: 20px;
   font-weight: 600;
   font-size: 0.8rem;
-  white-space: normal; flex-wrap: nowrap !important;
+  flex-wrap: nowrap !important; white-space: nowrap !important;
   min-width: 85px;
 }
 
