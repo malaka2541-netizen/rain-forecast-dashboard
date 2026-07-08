@@ -2783,6 +2783,11 @@ async function fetchDashboardData() {
       fetchOpenWeatherForecast(currentLat, currentLon),
       fetchGoogleWeatherForecast(currentLat, currentLon)
     ]);
+    
+    // Fetch and display sunrise/sunset for this location
+    if (typeof fetchAndDisplaySunTimes === 'function') {
+      fetchAndDisplaySunTimes(currentLat, currentLon);
+    }
 
     const openMeteoAvailable = openMeteoResult.status === "fulfilled" && openMeteoResult.value.forecastDays.length > 0;
     sourceComparisonState.openMeteoData = openMeteoAvailable ? openMeteoResult.value.forecastDays : [];

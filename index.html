@@ -39,8 +39,13 @@
             <span>Hourly Rain Planning Dashboard</span>
           </div>
         </div>
-        <div class="kpi-context" style="border-left: 2px solid var(--border-light); padding-left: 1.5rem; display: flex; align-items: center; min-height: 40px;">
+        <div class="kpi-context" style="border-left: 2px solid var(--border-light); padding-left: 1.5rem; display: flex; flex-direction: column; justify-content: center; min-height: 40px; gap: 2px;">
           <strong id="kpi-selected-date" style="font-size: 1.15rem; color: var(--text-main); letter-spacing: 0.5px;">-</strong>
+          <div id="kpi-time-sun" style="font-size: 0.85rem; color: var(--text-muted); display: flex; gap: 12px; font-weight: 500;">
+             <span id="current-time-display" title="เวลาปัจจุบัน"><i class="fa-regular fa-clock"></i> <span class="val">--:--</span></span>
+             <span id="sunrise-display" title="เวลาพระอาทิตย์ขึ้น"><i class="fa-solid fa-sun" style="color: #f59e0b;"></i> <span class="val">--:--</span></span>
+             <span id="sunset-display" title="เวลาพระอาทิตย์ตก"><i class="fa-solid fa-moon" style="color: #6366f1;"></i> <span class="val">--:--</span></span>
+          </div>
         </div>
       </div>
 
