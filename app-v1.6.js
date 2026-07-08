@@ -3128,3 +3128,37 @@ window.addEventListener('languagechanged', () => {
     }
   }
 });
+
+// ==========================================
+// Clock and Sunrise/Sunset Logic
+// ==========================================
+
+function updateHeaderClock() {
+  const clockEl = document.querySelector('#current-time-display .val');
+  if (clockEl) {
+    const now = new Date();
+    clockEl.innerText = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น.';
+  }
+}
+setInterval(updateHeaderClock, 1000);
+updateHeaderClock();
+
+async function fetchAndDisplaySunTimes(lat, lon) {
+  const sunriseEl = document.querySelector('#sunrise-display .val');
+  const sunsetEl = document.querySelector('#sunset-display .val');
+  if (!sunriseEl || !sunsetEl) return;
+  
+  try {
+    const response = await fetch(`https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lon}&formatted=0`);
+    const data = await response.json();
+    if (data && data.results) {
+      const sunrise = new Date(data.results.sunrise);
+      const sunset = new Date(data.results.sunset);
+      
+      sunriseEl.innerText = sunrise.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น.';
+      sunsetEl.innerText = sunset.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น.';
+    }
+  } catch (err) {
+    console.error('Failed to fetch sun times:', err);
+  }
+}

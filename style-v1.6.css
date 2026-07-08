@@ -1405,42 +1405,8 @@ body.is-exporting-table .legend-badge {
   padding: 6px 10px;
 }
 
-body.is-exporting-table .table-header h2 > i,
-body.is-exporting-table .legend-badge > i,
-body.is-exporting-table .forecast-reliability-note h4 > i,
-body.is-exporting-table .r-badge > i {
-  display: none !important;
-}
-
-body.is-exporting-table .table-header h2::before,
-body.is-exporting-table .forecast-reliability-note h4::before {
-  content: "";
-  display: inline-block;
-  width: 0.72rem;
-  height: 0.72rem;
-  flex: 0 0 auto;
-  border: 1.5px solid #93c5fd;
-  border-radius: 2px;
-  background: #eff6ff;
-}
-
-body.is-exporting-table .forecast-reliability-note h4::before {
-  border-radius: 999px;
-  background: #3b82f6;
-  border-color: #3b82f6;
-}
-
-body.is-exporting-table .legend-badge::before,
-body.is-exporting-table .r-badge::before {
-  content: "";
-  display: inline-block;
-  width: 0.58rem;
-  height: 0.58rem;
-  flex: 0 0 auto;
-  border-radius: 2px;
-  background: currentColor;
-  opacity: 0.26;
-}
+/* Font Awesome icons are now replaced with inline SVGs during export */
+/* SVG icons are injected by JS during export - no CSS pseudo-element fallbacks needed */
 
 body.is-exporting-table .r-level.high .r-badge::before {
   background: #4ade80;
