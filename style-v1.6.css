@@ -31,6 +31,7 @@
   --accent-glow-1: rgba(14, 165, 233, 0.15);
   --accent-glow-2: rgba(236, 72, 153, 0.1);
   --table-hdr-bg: rgba(15, 23, 42, 0.6);
+  --table-border: rgba(148, 163, 184, 0.3);
   --input-bg: rgba(15, 22, 38, 0.8);
   --input-border: rgba(255, 255, 255, 0.1);
 }
@@ -52,6 +53,7 @@
   --accent-glow-1: rgba(186, 230, 253, 0.3);
   --accent-glow-2: rgba(fbcfe8, 0.2);
   --table-hdr-bg: rgba(226, 232, 240, 0.8);
+  --table-border: #94a3b8;
   --input-bg: rgba(255, 255, 255, 0.9);
   --input-border: rgba(0, 0, 0, 0.12);
 }
@@ -1590,7 +1592,7 @@ body.is-exporting-table .r-badge {
   font-weight: 700;
   padding: 0.75rem 0.5rem;
   color: var(--text-main);
-  border-bottom: 1px solid var(--card-border);
+  border: 1px solid var(--table-border);
   min-width: 55px;
 }
 
@@ -1606,7 +1608,7 @@ body.is-exporting-table .r-badge {
 
 .forecast-table td {
   padding: 0.75rem 0.5rem;
-  border-bottom: 1px solid var(--card-border);
+  border: 1px solid var(--table-border);
 }
 
 .forecast-table td:not(:first-child) {
