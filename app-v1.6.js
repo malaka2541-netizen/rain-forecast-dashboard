@@ -1780,46 +1780,96 @@ document.addEventListener("DOMContentLoaded", () => {
     ]);
   };
 
-  const captureForecastTableImage = async (tableCard) => {
-    if (window.htmlToImage && typeof window.htmlToImage.toPng === "function") {
-      return window.htmlToImage.toPng(tableCard, {
-        pixelRatio: 2,
-        backgroundColor: "#f8fafc",
-        cacheBust: true,
-        width: tableCard.offsetWidth,
-        height: tableCard.offsetHeight,
-        style: {
-          transform: "none"
+  const replaceFontAwesomeWithSvg = (container) => {
+    const iconMap = {
+      'fa-circle': '<svg viewBox="0 0 512 512" width="1em" height="1em" style="vertical-align:-0.125em;"><circle cx="256" cy="256" r="256" fill="currentColor"/></svg>',
+      'fa-table': '<svg viewBox="0 0 512 512" width="1em" height="1em" style="vertical-align:-0.125em;"><path fill="currentColor" d="M64 32C28.7 32 0 60.7 0 96v320c0 35.3 28.7 64 64 64h384c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64zm0 64h384v64H64V96zm0 128h128v64H64v-64zm0 128h128v64H64v-64zm192-128h192v64H256v-64zm0 128h192v64H256v-64z"/></svg>',
+      'fa-location-dot': '<svg viewBox="0 0 384 512" width="1em" height="1em" style="vertical-align:-0.125em;"><path fill="currentColor" d="M215.7 499.2C267 435 384 279.4 384 192C384 86 298 0 192 0S0 86 0 192c0 87.4 117 243 168.3 307.2c12.3 15.3 35.1 15.3 47.4 0zM192 128a64 64 0 1 1 0 128 64 64 0 1 1 0-128z"/></svg>',
+      'fa-download': '<svg viewBox="0 0 512 512" width="1em" height="1em" style="vertical-align:-0.125em;"><path fill="currentColor" d="M288 32c0-17.7-14.3-32-32-32s-32 14.3-32 32v242.7l-73.4-73.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l128 128c12.5 12.5 32.8 12.5 45.3 0l128-128c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L288 274.7V32zM64 352c-35.3 0-64 28.7-64 64v32c0 35.3 28.7 64 64 64h384c35.3 0 64-28.7 64-64v-32c0-35.3-28.7-64-64-64H64z"/></svg>',
+      'fa-circle-check': '<svg viewBox="0 0 512 512" width="1em" height="1em" style="vertical-align:-0.125em;"><path fill="currentColor" d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM369 209L241 337c-9.4 9.4-24.6 9.4-33.9 0l-64-64c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47L335 175c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z"/></svg>',
+      'fa-circle-exclamation': '<svg viewBox="0 0 512 512" width="1em" height="1em" style="vertical-align:-0.125em;"><path fill="currentColor" d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm0-384c13.3 0 24 10.7 24 24v112c0 13.3-10.7 24-24 24s-24-10.7-24-24V152c0-13.3 10.7-24 24-24zm-32 224a32 32 0 1 1 64 0 32 32 0 1 1-64 0z"/></svg>',
+      'fa-triangle-exclamation': '<svg viewBox="0 0 512 512" width="1em" height="1em" style="vertical-align:-0.125em;"><path fill="currentColor" d="M256 32c14.2 0 27.3 7.5 34.5 19.8l216 368c7.3 12.4 7.3 27.7 .2 40.1S486.3 480 472 480H40c-14.3 0-27.6-7.7-34.7-20.1s-7-27.8 .2-40.1l216-368C228.7 39.5 241.8 32 256 32zm0 128c-13.3 0-24 10.7-24 24v112c0 13.3 10.7 24 24 24s24-10.7 24-24V184c0-13.3-10.7-24-24-24zm-32 224a32 32 0 1 1 64 0 32 32 0 1 1-64 0z"/></svg>',
+    };
+
+    const replacements = [];
+    container.querySelectorAll('i.fa-solid, i.fas, i.fa').forEach(icon => {
+      for (const [faClass, svgHtml] of Object.entries(iconMap)) {
+        if (icon.classList.contains(faClass)) {
+          const span = document.createElement('span');
+          span.innerHTML = svgHtml;
+          span.style.color = icon.style.color || window.getComputedStyle(icon).color;
+          span.style.fontSize = icon.style.fontSize || 'inherit';
+          span.style.marginRight = icon.style.marginRight || '';
+          span.style.display = 'inline-flex';
+          span.style.alignItems = 'center';
+          span.dataset.originalIcon = icon.outerHTML;
+          replacements.push({ original: icon, replacement: span });
+          break;
         }
-      });
-    }
-
-    if (typeof html2canvas === "undefined") {
-      throw new Error("Image export library is not ready");
-    }
-
-    const canvas = await html2canvas(tableCard, {
-      scale: 2,
-      backgroundColor: "#f8fafc",
-      useCORS: true,
-      logging: false,
-      onclone: (clonedDoc) => {
-        const clonedTableCard = clonedDoc.querySelector(".table-card");
-        if (!clonedTableCard) return;
-        clonedTableCard.style.fontFamily = "'Sarabun', sans-serif";
-        clonedTableCard.querySelectorAll("*").forEach((el) => {
-          if (el.classList.contains("fa") || el.classList.contains("fa-solid") || el.classList.contains("fas")) {
-            el.style.fontFamily = "'Font Awesome 6 Free'";
-            el.style.fontWeight = "900";
-          } else {
-            el.style.fontFamily = "'Sarabun', sans-serif";
-          }
-          el.style.letterSpacing = "0";
-        });
       }
     });
 
-    return canvas.toDataURL("image/png");
+    replacements.forEach(({ original, replacement }) => {
+      original.parentNode.replaceChild(replacement, original);
+    });
+
+    return replacements;
+  };
+
+  const restoreFontAwesomeIcons = (replacements) => {
+    replacements.forEach(({ replacement }) => {
+      if (replacement.dataset.originalIcon && replacement.parentNode) {
+        const temp = document.createElement('div');
+        temp.innerHTML = replacement.dataset.originalIcon;
+        const original = temp.firstElementChild;
+        replacement.parentNode.replaceChild(original, replacement);
+      }
+    });
+  };
+
+  const captureForecastTableImage = async (tableCard) => {
+    // Replace Font Awesome icons with inline SVGs before capture
+    const replacements = replaceFontAwesomeWithSvg(tableCard);
+
+    try {
+      if (window.htmlToImage && typeof window.htmlToImage.toPng === "function") {
+        return await window.htmlToImage.toPng(tableCard, {
+          pixelRatio: 2,
+          backgroundColor: "#f8fafc",
+          cacheBust: true,
+          width: tableCard.offsetWidth,
+          height: tableCard.offsetHeight,
+          style: {
+            transform: "none"
+          }
+        });
+      }
+
+      if (typeof html2canvas === "undefined") {
+        throw new Error("Image export library is not ready");
+      }
+
+      const canvas = await html2canvas(tableCard, {
+        scale: 2,
+        backgroundColor: "#f8fafc",
+        useCORS: true,
+        logging: false,
+        onclone: (clonedDoc) => {
+          const clonedTableCard = clonedDoc.querySelector(".table-card");
+          if (!clonedTableCard) return;
+          clonedTableCard.style.fontFamily = "'Sarabun', sans-serif";
+          clonedTableCard.querySelectorAll("*").forEach((el) => {
+            el.style.fontFamily = "'Sarabun', sans-serif";
+            el.style.letterSpacing = "0";
+          });
+        }
+      });
+
+      return canvas.toDataURL("image/png");
+    } finally {
+      // Always restore original Font Awesome icons
+      restoreFontAwesomeIcons(replacements);
+    }
   };
 
   const waitForExportLayout = () => new Promise((resolve) => {
@@ -1868,9 +1918,7 @@ document.addEventListener("DOMContentLoaded", () => {
       };
 
       document.body.classList.add('is-exporting-table');
-      showTableWeatherIcons = false;
-      updateTableIconToggleUI();
-      renderTable();
+      // Weather icons are now preserved during export via SVG replacement
       
       // Unlock all width constraints
       if (tableResponsive) {
@@ -1909,9 +1957,6 @@ document.addEventListener("DOMContentLoaded", () => {
         alert("เกิดข้อผิดพลาดในการบันทึกรูปภาพ");
       } finally {
         document.body.classList.remove('is-exporting-table');
-        showTableWeatherIcons = originalShowTableWeatherIcons;
-        updateTableIconToggleUI();
-        renderTable();
         // Restore ALL original styles
         if (forecastTable) {
           forecastTable.style.width = saved.forecastTableWidth;
@@ -2516,6 +2561,43 @@ const dayNightBackgroundPlugin = {
   }
 };
 
+// Plugin to draw horizontal threshold lines matching table color tiers
+const thresholdLinesPlugin = {
+  id: 'thresholdLines',
+  afterDraw: (chart) => {
+    const { ctx, chartArea, scales } = chart;
+    const yAxis = scales.y;
+
+    const thresholds = [
+      { value: 40, color: 'rgba(91, 140, 62, 0.4)', label: '40%' },
+      { value: 70, color: 'rgba(196, 154, 26, 0.4)', label: '70%' },
+      { value: 90, color: 'rgba(192, 57, 43, 0.4)', label: '90%' }
+    ];
+
+    ctx.save();
+    thresholds.forEach(({ value, color, label }) => {
+      const y = yAxis.getPixelForValue(value);
+
+      // Draw dashed line
+      ctx.beginPath();
+      ctx.setLineDash([6, 4]);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
+      ctx.moveTo(chartArea.left, y);
+      ctx.lineTo(chartArea.right, y);
+      ctx.stroke();
+
+      // Draw label
+      ctx.setLineDash([]);
+      ctx.fillStyle = color;
+      ctx.font = "bold 10px 'Outfit', sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillText(label, chartArea.right - 4, y - 4);
+    });
+    ctx.restore();
+  }
+};
+
 // Draw/Update Chart.js visualization
 function renderChart() {
   const currentDayData = activeForecastData.find(d => d.date === selectedDate);
@@ -2533,15 +2615,31 @@ function renderChart() {
     forecastChartInstance.destroy();
   }
 
-  // Hardcode colors to Light Theme settings
+  // Colors matching the table's 4-tier system
   const textColor = "#64748b";
   const gridColor = "rgba(0, 0, 0, 0.05)";
-  const gradientColor = "rgba(2, 132, 199, 0.3)";
-  const borderColor = "#0284c7";
 
+  // Threshold colors (matching table cell colors)
+  const colorLow = "#5b8c3e";         // Green (0-40%)
+  const colorMed = "#c49a1a";         // Amber (41-70%)
+  const colorHigh = "#d96a1b";        // Orange (71-90%)
+  const colorVeryHigh = "#c0392b";    // Red (91-100%)
+
+  // Vertical gradient fill matching table tiers (bottom=green to top=red)
   const chartGradient = ctx.createLinearGradient(0, 0, 0, 300);
-  chartGradient.addColorStop(0, gradientColor);
-  chartGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+  chartGradient.addColorStop(0, "rgba(192, 57, 43, 0.35)");    // Red at top (100%)
+  chartGradient.addColorStop(0.1, "rgba(217, 106, 27, 0.30)");  // Orange (90%)
+  chartGradient.addColorStop(0.3, "rgba(196, 154, 26, 0.25)");  // Amber (70%)
+  chartGradient.addColorStop(0.6, "rgba(91, 140, 62, 0.18)");   // Green (40%)
+  chartGradient.addColorStop(1, "rgba(91, 140, 62, 0.02)");     // Fade out at bottom
+
+  // Helper: get color based on value threshold
+  const getThresholdColor = (value) => {
+    if (value <= 40) return colorLow;
+    if (value <= 70) return colorMed;
+    if (value <= 90) return colorHigh;
+    return colorVeryHigh;
+  };
 
   forecastChartInstance = new Chart(ctx, {
     type: "line",
@@ -2550,9 +2648,17 @@ function renderChart() {
       datasets: [{
         label: "โอกาสการเกิดฝน (%)",
         data: values,
-        borderColor: borderColor,
         borderWidth: 3,
-        pointBackgroundColor: borderColor,
+        segment: {
+          borderColor: (ctx) => {
+            const yVal = ctx.p1.parsed.y;
+            return getThresholdColor(yVal);
+          }
+        },
+        pointBackgroundColor: (ctx) => {
+          const val = ctx.parsed ? ctx.parsed.y : 0;
+          return getThresholdColor(val || 0);
+        },
         pointBorderColor: "#fff",
         pointBorderWidth: 2,
         pointRadius: 4,
@@ -2563,7 +2669,7 @@ function renderChart() {
         tension: 0.35
       }]
     },
-    plugins: [dayNightBackgroundPlugin],
+    plugins: [dayNightBackgroundPlugin, thresholdLinesPlugin],
     options: {
       responsive: true,
       maintainAspectRatio: false,
