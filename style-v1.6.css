@@ -1577,12 +1577,14 @@ body.is-exporting-table .r-badge {
   width: 100%;
   overflow-x: auto;
   border-radius: 12px;
-  border: 1px solid var(--card-border);
+  border: 1px solid var(--table-border);
+  overflow: hidden;
 }
 
 .forecast-table {
   width: 100%;
   border-collapse: collapse;
+  border-style: hidden;
   text-align: center;
   font-size: 0.85rem;
 }
