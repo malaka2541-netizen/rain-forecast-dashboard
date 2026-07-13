@@ -54,8 +54,6 @@ const kpiPeakTotalRain = document.getElementById("kpi-peak-total-rain");
 const kpiPeakMaxWind = document.getElementById("kpi-peak-max-wind");
 const kpiAlertHeadline = document.getElementById("kpi-alert-headline");
 const kpiAlertDetail = document.getElementById("kpi-alert-detail");
-const kpiIntensity = document.getElementById("kpi-intensity");
-const kpiIntensityDetail = document.getElementById("kpi-intensity-detail");
 const kpiAlertMarquee = document.getElementById("kpi-alert-marquee");
 const kpiAlertMarqueeText = document.getElementById("kpi-alert-marquee-text");
 const kpiAlertMarqueeTextClone = document.getElementById("kpi-alert-marquee-text-clone");
@@ -2338,8 +2336,6 @@ function updateKpiAnalytics() {
     if (kpiPeakExtra) kpiPeakExtra.classList.add("hidden");
     kpiAlertHeadline.innerText = "ไม่มีข้อมูลเตือน";
     kpiAlertDetail.innerText = "ไม่พบข้อมูลรายชั่วโมง";
-    kpiIntensity.innerText = "จุดฝนแรงสุด";
-    kpiIntensityDetail.innerText = "ยังไม่มีข้อมูลเพียงพอ";
     applyAlertVisualState("calm");
     updateAlertMarquee(null);
     return;
@@ -2390,11 +2386,6 @@ function updateKpiAnalytics() {
       alertPdfBtn.href = "#";
       alertPdfBtn.classList.add("hidden");
     }
-  }
-
-  if (strongestProfile) {
-    kpiIntensity.innerText = `จุดฝนแรงสุด: ${strongestProfile.rainIntensity.label}`;
-    kpiIntensityDetail.innerText = `${strongestProfile.hour} | ${formatMillimeters(strongestProfile.precipitation)} | ${strongestProfile.weather.label} | ลม ${formatWindKmh(strongestProfile.windGust)}`;
   }
 }
 
